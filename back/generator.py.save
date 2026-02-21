@@ -1,5 +1,6 @@
 import os
 import json
+import re
 from groq import Groq
 from dotenv import load_dotenv
 from prompt import SYSTEM_PROMPT, build_user_prompt
@@ -7,8 +8,7 @@ from prompt import SYSTEM_PROMPT, build_user_prompt
 load_dotenv()
 
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
-MODEL = "llama-3.3-70b-versatile"
-
+MODEL = "llama-3.1-8b-instant"
 
 def generate_email(name, company, role, context):
     user_prompt = build_user_prompt(name, company, role, context)
@@ -19,10 +19,15 @@ def generate_email(name, company, role, context):
             {"role": "user", "content": user_prompt}
         ],
         model=MODEL,
-        response_format={"type": "json_object"}
     )
 
     message_content = chat_completion.choices[0].message.content.strip()
+
+    message_content = re.sub(r'^```json\s*', '', message_content, flags=re.MULTILINE)
+    message_content = re.sub(r'^```\s*', '', message_content, flags=re.MULTILINE)
+    message_content = re.sub(r'```\s*$', '', message_content, flags=re.MULTILINE)
+    message_content = message_content.strip()
+
     email_data = json.loads(message_content)
 
     return {
@@ -34,3 +39,4 @@ if __name__ == "__main__":
     result = generate_email("John Smith", "OpenAI", "Software Engineer", "They are hiring for AI tooling")
     print("Subject:", result["subject"])
     print("\nBody:\n", result["body"])
+
