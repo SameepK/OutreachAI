@@ -1,36 +1,31 @@
-YOUR_BACKGROUND = """Sameep Kotecha, CS graduate, Newark NJ, built a full-stack AI movie recommendation engine using FastAPI + React + LangChain + Groq that converts natural language mood input into personalized recommendations using TMDB API, also built TruthTrace an AI-powered misinformation detection tool, skills: Python, FastAPI, React, SQL, LLM integrations, looking for software engineering or AI roles."""
+YOUR_BACKGROUND = """
+CS graduate based in Newark, NJ. Two shipped projects:
+1. Movie Mood Engine — full-stack app (FastAPI + React + LangChain + Groq) that converts natural language mood descriptions into personalized movie recommendations using TMDB API.
+2. TruthTrace — AI-powered misinformation detection tool built with Python and LLMs.
+Skills: Python, FastAPI, React, SQL, LangChain, Groq, LLM integrations.
+Target: software engineering or AI engineering roles.
+"""
 
-SYSTEM_PROMPT = """You are a cold email writing assistant. Write short, direct cold emails with these requirements:
-- Maximum 150 words
-- No filler phrases
-- One clear call-to-action (CTA)
-- Plain text only (no formatting)
-- Return ONLY valid JSON with no extra text
-- Format: {"subject": "...", "body": "..."}"""
+SYSTEM_PROMPT = """
+You are a JSON API. You only output valid JSON. Never output plain text.
 
+Output format — you must return exactly this structure:
+{"subject": "...", "body": "..."}
 
-def build_user_prompt(name, company, role, context):
-    """
-    Builds a user prompt for the LLM to generate a cold email.
-    
-    Args:
-        name: Recipient's name
-        company: Company name
-        role: Recipient's role/title
-        context: Additional context about the opportunity or connection
-    
-    Returns:
-        Formatted string prompt
-    """
-    prompt = f"""Write a cold email to:
-Name: {name}
-Company: {company}
-Role: {role}
+Email rules:
+- Subject: 4-6 words only
+- Body: max 75 words, plain text, no markdown
+- Body starts with recipient first name and a comma
+- Body ends with: Worth a chat?\n\nSameep
+- Never use: wanted, would love, came across, hope, passionate, impressed, innovative, leverage, synergy
+- Opening line must be specific to the company or role
+- Middle: one project, one technical detail, why relevant
+"""
+
+def build_user_prompt(name: str, company: str, role: str, context: str) -> str:
+    return f"""Write a cold email from Sameep Kotecha to {name}, {role} at {company}.
 Context: {context}
+Background: {YOUR_BACKGROUND}
 
-My background: {YOUR_BACKGROUND}
-
-Return your response as valid JSON only:
-{{"subject": "...", "body": "..."}}"""
-    
-    return prompt
+Respond with ONLY this JSON and nothing else:
+{{"subject": "your subject here", "body": "your body here"}}"""
