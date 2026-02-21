@@ -3,3 +3,4 @@ __pycache__/
 *.pyc
 emails.db
 *.save
+.DS_Store
