@@ -27,7 +27,7 @@ def generate_email(name, company, role, context, resume_text=""):
 
     return {
         "subject": email_data.get("subject", ""),
-        "body": email_data.get("body", "")
+        "body": email_data.get("email_body", email_data.get("body", ""))
     }
 
 if __name__ == "__main__":

@@ -81,4 +81,4 @@ Context: {context}
 Background: {background}
 
 Respond with ONLY this JSON and nothing else:
-{{"subject": "your subject here", "body": "your body here"}}"""
+{{"subject": "your subject here", "email_body": "your body here"}}"""
