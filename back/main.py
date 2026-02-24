@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 from generator import generate_email
 from mailer import send_email
 from db import insert_email
+from resume_parser import extract_text_from_file
 
 load_dotenv()
 
@@ -27,6 +28,7 @@ class GenerateRequest(BaseModel):
     company: str
     role: str
     context: str = ""
+    resume_text: str = ""  # Optional resume content
 
 
 class SendRequest(BaseModel):
@@ -45,14 +47,34 @@ def health_check():
     return {"status": "running"}
 
 
+@app.post("/parse-resume")
+async def parse_resume_route(file: UploadFile = File(...)):
+    """
+    Upload and parse a resume file (PDF or text).
+    Returns: { resume_text: str }
+    """
+    try:
+        file_content = await file.read()
+        resume_text = extract_text_from_file(file_content, file.filename)
+        return {"resume_text": resume_text}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.post("/generate-email")
 def generate_email_route(req: GenerateRequest):
     """
-    Generate a cold email subject + body via Ollama (Mistral).
+    Generate a cold email subject + body using Groq.
     Returns: { subject: str, body: str }
     """
     try:
-        result = generate_email(req.name, req.company, req.role, req.context)
+        result = generate_email(
+            req.name, 
+            req.company, 
+            req.role, 
+            req.context,
+            req.resume_text
+        )
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
