@@ -10,8 +10,8 @@ client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 MODEL = "llama-3.3-70b-versatile"
 
 
-def generate_email(name, company, role, context):
-    user_prompt = build_user_prompt(name, company, role, context)
+def generate_email(name, company, role, context, resume_text=""):
+    user_prompt = build_user_prompt(name, company, role, context, resume_text)
 
     chat_completion = client.chat.completions.create(
         messages=[
@@ -31,6 +31,6 @@ def generate_email(name, company, role, context):
     }
 
 if __name__ == "__main__":
-    result = generate_email("John Smith", "OpenAI", "Software Engineer", "They are hiring for AI tooling")
+    result = generate_email("John Smith", "OpenAI", "Software Engineer", "They are hiring for AI tooling", "")
     print("Subject:", result["subject"])
     print("\nBody:\n", result["body"])

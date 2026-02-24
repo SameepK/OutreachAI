@@ -1,54 +1,43 @@
+import smtplib
 import os
-import resend
+from email.mime.text import MIMEText
 from dotenv import load_dotenv
 
 load_dotenv()
 
-resend.api_key = os.getenv("RESEND_API_KEY")
-
-
 def send_email(to_email: str, subject: str, body: str) -> bool:
-    """
-    Send a plain-text email via the Resend API.
-
-    Args:
-        to_email:  Recipient email address.
-        subject:   Email subject line.
-        body:      Plain-text email body.
-
-    Returns:
-        True if the email was sent successfully, False otherwise.
-    """
     try:
-        response = resend.Emails.send({
-            "from": "onboarding@resend.dev",
-            "to": to_email,
-            "subject": subject,
-            "text": body,
-        })
-        print(f"[mailer] Email sent successfully to {to_email} (id: {response['id']})")
+        gmail_user = os.getenv("GMAIL_USER")
+        gmail_password = os.getenv("GMAIL_APP_PASSWORD")
+        
+        if not gmail_user or not gmail_password:
+            print("[mailer] Error: GMAIL_USER and GMAIL_APP_PASSWORD must be set in .env")
+            return False
+        
+        msg = MIMEText(body)
+        msg["Subject"] = subject
+        msg["From"] = gmail_user
+        msg["To"] = to_email
+
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
+            smtp.login(gmail_user, gmail_password)
+            smtp.sendmail(gmail_user, to_email, msg.as_string())
+        
+        print(f"[mailer] Email sent to {to_email}")
         return True
 
+    except smtplib.SMTPAuthenticationError as e:
+        print(f"[mailer] Authentication failed: Check your GMAIL_APP_PASSWORD in .env")
+        print(f"[mailer] Error details: {e}")
+        return False
     except Exception as e:
-        print(f"[mailer] Failed to send email: {e}")
+        print(f"[mailer] Failed: {e}")
         return False
 
-
 if __name__ == "__main__":
-    # Fill in RESEND_API_KEY in back/.env before running.
-    # The "to" address must be your verified Resend account email
-    # when using the shared onboarding@resend.dev sender.
-    test_to = "kotechasameep123@gmail.com"  # <-- replace with your email address
-    test_subject = "Test Cold Email"
-    test_body = (
-        "Hey there,\n\n"
-        "This is a test email sent from the cold-email AI agent.\n"
-        "If you're reading this, your Resend setup is working correctly!\n\n"
-        "Cheers"
+    success = send_email(
+        "kotechasameep123@gmail.com",
+        "Test Cold Email",
+        "Hey,\n\nThis is a test from the cold-email agent via Gmail SMTP.\n\nCheers"
     )
-
-    success = send_email(test_to, test_subject, test_body)
-    if success:
-        print("[mailer] Test passed ✓")
-    else:
-        print("[mailer] Test failed ✗ — check your RESEND_API_KEY and try again.")
+    print("[mailer] Test passed ✓" if success else "[mailer] Test failed ✗")

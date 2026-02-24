@@ -17,10 +17,81 @@ export default function EmailForm({ onSuccess }) {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [resumeText, setResumeText] = useState("");
+  const [resumeFileName, setResumeFileName] = useState("");
+  const [isDragging, setIsDragging] = useState(false);
+  const [uploadingResume, setUploadingResume] = useState(false);
 
   const handleChange = (e) => {
     setForm((prev) => ({ ...prev, [e.target.id]: e.target.value }));
     setError("");
+  };
+
+  const handleFileUpload = async (file) => {
+    if (!file) return;
+    
+    // Validate file type
+    const validTypes = ['application/pdf', 'text/plain', 'text/markdown'];
+    const validExtensions = ['.pdf', '.txt', '.md'];
+    const fileExtension = file.name.toLowerCase().slice(file.name.lastIndexOf('.'));
+    
+    if (!validTypes.includes(file.type) && !validExtensions.includes(fileExtension)) {
+      setError("Please upload a PDF or text file (.pdf, .txt, .md)");
+      return;
+    }
+
+    setUploadingResume(true);
+    setError("");
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const res = await fetch("http://localhost:8000/parse-resume", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.detail || `Failed to parse resume: ${res.status}`);
+      }
+
+      const { resume_text } = await res.json();
+      setResumeText(resume_text);
+      setResumeFileName(file.name);
+    } catch (err) {
+      setError(err.message || "Failed to upload resume");
+    } finally {
+      setUploadingResume(false);
+    }
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files[0];
+    if (file) handleFileUpload(file);
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleFileInput = (e) => {
+    const file = e.target.files[0];
+    if (file) handleFileUpload(file);
+  };
+
+  const removeResume = () => {
+    setResumeText("");
+    setResumeFileName("");
   };
 
   const handleSubmit = async (e) => {
@@ -32,7 +103,10 @@ export default function EmailForm({ onSuccess }) {
       const res = await fetch("http://localhost:8000/generate-email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({
+          ...form,
+          resume_text: resumeText,
+        }),
       });
 
       if (!res.ok) {
@@ -73,6 +147,84 @@ export default function EmailForm({ onSuccess }) {
             />
           </div>
         ))}
+
+        {/* Resume Upload */}
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1">
+            Resume{" "}
+            <span className="text-slate-400 font-normal">(optional)</span>
+          </label>
+          {!resumeText ? (
+            <div
+              onDrop={handleDrop}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
+                isDragging
+                  ? "border-blue-500 bg-blue-50"
+                  : "border-slate-300 bg-slate-50 hover:border-slate-400"
+              }`}
+            >
+              <input
+                type="file"
+                id="resume-upload"
+                accept=".pdf,.txt,.md"
+                onChange={handleFileInput}
+                className="hidden"
+              />
+              <label
+                htmlFor="resume-upload"
+                className="cursor-pointer flex flex-col items-center gap-2"
+              >
+                {uploadingResume ? (
+                  <>
+                    <svg className="animate-spin h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                    </svg>
+                    <span className="text-sm text-slate-600">Parsing resume...</span>
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                    </svg>
+                    <span className="text-sm text-slate-600">
+                      <span className="text-blue-600 font-medium">Click to upload</span> or drag and drop
+                    </span>
+                    <span className="text-xs text-slate-400">PDF, TXT, or MD (max 10MB)</span>
+                  </>
+                )}
+              </label>
+            </div>
+          ) : (
+            <div className="border border-slate-200 rounded-lg p-4 bg-slate-50">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-2">
+                    <svg className="w-5 h-5 text-green-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span className="text-sm font-medium text-slate-700 truncate">{resumeFileName}</span>
+                  </div>
+                  <p className="text-xs text-slate-500 line-clamp-2">
+                    {resumeText.substring(0, 150)}...
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={removeResume}
+                  className="text-slate-400 hover:text-red-600 transition-colors shrink-0"
+                  title="Remove resume"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
 
         <div>
           <label htmlFor="context" className="block text-sm font-medium text-slate-700 mb-1">
