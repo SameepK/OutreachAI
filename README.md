@@ -1,16 +1,158 @@
-# React + Vite
+# Cold Email Agent
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+An AI-powered full-stack cold email tool. Enter a prospect's name, company, and role — the agent generates a personalized cold email using an LLM and sends it directly via the Resend API. All outreach attempts are logged to a local SQLite database.
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Tech Stack
 
-## React Compiler
+| Layer | Technology |
+|------------|-------------------------------------|
+| Frontend | React, Vite, Tailwind CSS |
+| Backend | Python, FastAPI |
+| AI / LLM | Groq API (Llama 3.3-70B Versatile) |
+| Email Send | Resend API |
+| Database | SQLite |
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+---
 
-## Expanding the ESLint configuration
+## Features
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+- **AI-generated emails** — Personalized subject + body via Groq's Llama 3.3-70B with structured JSON output
+- **Live preview** — Review the generated email before sending
+- **One-click delivery** — Send directly via Resend API from the UI
+- **Outreach logging** — SQLite DB tracks every attempt (recipient, company, role, subject, body, status)
+- **Modular backend** — Cleanly separated `generator.py`, `mailer.py`, `db.py`, and `prompt.py` modules
+
+---
+
+## Project Structure
+
+```
+cold-email-agent/
+├── back/               # Python FastAPI backend
+│   ├── main.py         # API routes (/generate-email, /send-email)
+│   ├── generator.py    # Groq LLM email generation
+│   ├── mailer.py       # Resend API email delivery
+│   ├── db.py           # SQLite logging
+│   ├── prompt.py       # System + user prompt engineering
+│   └── emails.db       # Auto-created SQLite database
+└── front/              # React + Vite frontend
+    └── src/
+        └── components/
+            ├── EmailForm.jsx         # Input form
+            ├── EmailPreview.jsx      # Preview before send
+            └── SentConfirmation.jsx  # Post-send confirmation
+```
+
+---
+
+## Getting Started
+
+### Prerequisites
+
+- Python 3.9+
+- Node.js 18+
+- A [Groq API key](https://console.groq.com/)
+- A [Resend API key](https://resend.com/)
+
+---
+
+### Backend Setup
+
+```bash
+cd back
+pip install fastapi uvicorn groq resend python-dotenv pydantic
+```
+
+Create a `.env` file inside `/back`:
+
+```env
+GROQ_API_KEY=your_groq_api_key_here
+RESEND_API_KEY=your_resend_api_key_here
+```
+
+Start the server:
+
+```bash
+uvicorn main:app --reload
+```
+
+API runs at `http://localhost:8000`
+
+---
+
+### Frontend Setup
+
+```bash
+cd front
+npm install
+npm run dev
+```
+
+App runs at `http://localhost:5173`
+
+---
+
+## API Endpoints
+
+### `POST /generate-email`
+
+Generates a personalized cold email using the Groq LLM.
+
+**Request body:**
+```json
+{
+  "name": "John Smith",
+  "email": "john@company.com",
+  "company": "Acme Corp",
+  "role": "Software Engineer",
+  "context": "They recently launched a new AI product"
+}
+```
+
+**Response:**
+```json
+{
+  "subject": "...",
+  "body": "..."
+}
+```
+
+---
+
+### `POST /send-email`
+
+Sends the email via Resend and logs the attempt to SQLite.
+
+**Request body:**
+```json
+{
+  "to_name": "John Smith",
+  "to_email": "john@company.com",
+  "company": "Acme Corp",
+  "role": "Software Engineer",
+  "subject": "...",
+  "body": "..."
+}
+```
+
+**Response:**
+```json
+{ "status": "sent" }
+```
+
+---
+
+## Environment Variables
+
+| Variable | Description |
+|------------------|-------------------------------|
+| `GROQ_API_KEY` | Groq API key for LLM access |
+| `RESEND_API_KEY` | Resend API key for email send |
+
+---
+
+## License
+
+MIT
