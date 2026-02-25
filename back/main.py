@@ -28,7 +28,12 @@ class GenerateRequest(BaseModel):
     company: str
     role: str
     context: str = ""
-    resume_text: str = ""  # Optional resume content
+    resume_text: str = ""  # Required resume content
+    target_role: str = ""  # Role the user is applying for
+    job_link: str = ""  # Optional job posting URL
+    linkedin: str = ""  # Optional LinkedIn URL
+    github: str = ""   # Optional GitHub URL
+    sign_off: str = "Best regards"
 
 
 class SendRequest(BaseModel):
@@ -69,11 +74,16 @@ def generate_email_route(req: GenerateRequest):
     """
     try:
         result = generate_email(
-            req.name, 
-            req.company, 
-            req.role, 
+            req.name,
+            req.company,
+            req.role,
             req.context,
-            req.resume_text
+            req.resume_text,
+            req.target_role,
+            req.job_link,
+            req.linkedin,
+            req.github,
+            req.sign_off,
         )
         return result
     except Exception as e:
