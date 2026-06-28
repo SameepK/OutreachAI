@@ -135,7 +135,7 @@ def build_user_prompt(
     name: str,
     company: str,
     role: str,
-    context: str,
+    public_signals_about_contact: str,
     resume_text: str = "",
     target_role: str = "",
     job_link: str = "",
@@ -159,8 +159,9 @@ def build_user_prompt(
         github.strip() if github and github.strip()
         else "[not provided]"
     )
-    context_value = (
-        context.strip() if context and context.strip()
+    signals_value = (
+        public_signals_about_contact.strip()
+        if public_signals_about_contact and public_signals_about_contact.strip()
         else "[none provided]"
     )
 
@@ -172,7 +173,7 @@ job_link: {job_link_value}
 linkedin: {linkedin_value}
 github: {github_value}
 sign_off: {sign_off}
-public_signals_about_contact: {context_value}
+public_signals_about_contact: {signals_value}
 my_resume_text: {resume_text.strip()}
 
 Respond with ONLY this JSON and nothing else:

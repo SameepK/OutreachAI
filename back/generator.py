@@ -14,7 +14,7 @@ def generate_email(
     name,
     company,
     role,
-    context,
+    public_signals_about_contact="",
     resume_text="",
     target_role="",
     job_link="",
@@ -26,7 +26,7 @@ def generate_email(
         name,
         company,
         role,
-        context,
+        public_signals_about_contact,
         resume_text,
         target_role,
         job_link,
@@ -38,10 +38,10 @@ def generate_email(
     chat_completion = client.chat.completions.create(
         messages=[
             {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": user_prompt}
+            {"role": "user", "content": user_prompt},
         ],
         model=MODEL,
-        response_format={"type": "json_object"}
+        response_format={"type": "json_object"},
     )
 
     message_content = chat_completion.choices[0].message.content.strip()
@@ -52,12 +52,13 @@ def generate_email(
         "body": email_data.get("email_body", email_data.get("body", "")),
     }
 
+
 if __name__ == "__main__":
     result = generate_email(
         "John Smith",
         "OpenAI",
         "Software Engineer",
-        "They are hiring for AI tooling",
+        "They recently shipped a new inference API for developers.",
         "Sample resume text here...",
         "Backend Engineer",
         "https://openai.com/careers/backend-engineer",
