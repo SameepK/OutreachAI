@@ -22,11 +22,6 @@ export default function EmailForm({ onSuccess }) {
   const [isDragging, setIsDragging] = useState(false);
   const [uploadingResume, setUploadingResume] = useState(false);
 
-  // NEW: research toggle + data
-  const [useResearch, setUseResearch] = useState(false);
-  const [research, setResearch] = useState("");
-  const [researchLoading, setResearchLoading] = useState(false);
-
   const handleChange = (e) => {
     setForm((prev) => ({ ...prev, [e.target.id]: e.target.value }));
     setError("");
@@ -109,41 +104,6 @@ export default function EmailForm({ onSuccess }) {
     setResumeFileName("");
   };
 
-  // NEW: call backend research endpoint (only when toggle is on)
-  const runResearch = async () => {
-    setResearchLoading(true);
-    setError("");
-
-    try {
-        const res = await fetch(`${API_BASE_URL}/research`, {
-
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: form.name,
-          email: form.email,
-          company: form.company,
-          role: form.role,
-          job_url: form.job_link || "",
-        }),
-      });
-
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.detail || `Research error: ${res.status}`);
-      }
-
-      const data = await res.json();
-      setResearch(data.research || "");
-      return data.research || "";
-    } catch (err) {
-      setError(err.message || "Failed to run research");
-      return "";
-    } finally {
-      setResearchLoading(false);
-    }
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -156,25 +116,21 @@ export default function EmailForm({ onSuccess }) {
     setError("");
 
     try {
-      let researchSummary = "";
-
-      // Only hit Perplexity backend if toggle is ON
-      if (useResearch) {
-        researchSummary = await runResearch();
-      }
-
       const res = await fetch(`${API_BASE_URL}/generate-email`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          ...form,
+          name: form.name,
+          email: form.email,
+          company: form.company,
+          role: form.role,
+          public_signals_about_contact: form.context || "",
           resume_text: resumeText,
           target_role: form.target_role,
           job_link: form.job_link || "",
           linkedin: form.linkedin || "",
           github: form.github || "",
           sign_off: form.sign_off || "Best regards",
-          research_summary: researchSummary, // NEW: send to backend
         }),
       });
 
@@ -184,7 +140,7 @@ export default function EmailForm({ onSuccess }) {
       }
 
       const { subject, body } = await res.json();
-      onSuccess({ subject, body, formData: { ...form, resumeText, researchSummary } });
+      onSuccess({ subject, body, formData: { ...form, resumeText } });
     } catch (err) {
       setError(err.message || "Something went wrong. Is the backend running?");
     } finally {
@@ -277,41 +233,6 @@ export default function EmailForm({ onSuccess }) {
             />
           </div>
         </div>
-
-        {/* NEW: Research toggle */}
-        <div className="pt-2">
-          <label className="flex items-center gap-3 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={useResearch}
-              onChange={(e) => setUseResearch(e.target.checked)}
-              className="w-5 h-5 text-blue-600 rounded border-slate-300 focus:ring-blue-500"
-            />
-            <span className="text-sm font-medium text-slate-800">
-              Enable Recipient Research (Perplexity)
-            </span>
-          </label>
-          {useResearch && (
-            <p className="text-xs text-slate-500 mt-1 ml-7">
-              Uses AI web search to pull recent facts about the person and company before generating the email.
-            </p>
-          )}
-        </div>
-
-        {/* Show research summary if we have one */}
-        {research && (
-          <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-semibold text-slate-800">Research Summary</h3>
-              {researchLoading && (
-                <span className="text-xs text-slate-500">Updating…</span>
-              )}
-            </div>
-            <p className="text-xs text-slate-700 whitespace-pre-wrap max-h-40 overflow-y-auto">
-              {research}
-            </p>
-          </div>
-        )}
 
         {/* Section 2 — Your Information */}
         <div className="pt-4 border-t border-slate-200">
@@ -526,10 +447,10 @@ export default function EmailForm({ onSuccess }) {
 
         <button
           type="submit"
-          disabled={loading || researchLoading}
+          disabled={loading}
           className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold py-3 rounded-lg text-sm transition-colors"
         >
-          {loading || researchLoading ? (
+          {loading ? (
             <>
               <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
                 <circle
@@ -546,10 +467,10 @@ export default function EmailForm({ onSuccess }) {
                   d="M4 12a8 8 0 018-8v8z"
                 />
               </svg>
-              {useResearch ? "Researching & generating…" : "Generating email…"}
+              Generating email…
             </>
           ) : (
-            useResearch ? "Generate Email with Research →" : "Generate Email →"
+            "Generate Email →"
           )}
         </button>
       </form>

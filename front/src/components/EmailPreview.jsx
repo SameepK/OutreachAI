@@ -1,5 +1,7 @@
 import { useState } from "react";
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+
 export default function EmailPreview({ emailData, onSent, onBack }) {
   const { formData } = emailData;
 
@@ -13,7 +15,7 @@ export default function EmailPreview({ emailData, onSent, onBack }) {
     setError("");
 
     try {
-      const res = await fetch("http://localhost:8000/send-email", {
+      const res = await fetch(`${API_BASE_URL}/send-email`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -35,7 +37,7 @@ export default function EmailPreview({ emailData, onSent, onBack }) {
       emailData.subject = subject;
       onSent();
     } catch (err) {
-      setError(err.message || "Failed to send. Check your RESEND_API_KEY.");
+      setError(err.message || "Failed to send. Check GMAIL_USER and GMAIL_APP_PASSWORD.");
     } finally {
       setSending(false);
     }
