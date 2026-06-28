@@ -1,214 +1,159 @@
-# OutreachAI – Cold Email Agent
+# OutreachAI – Job Application Email Agent
 
-A full-stack AI-powered cold email agent. Upload your resume, enter a recipient's details, optionally trigger real-time research via Perplexity Sonar, and generate + send a personalized cold email — all from a clean React UI.
-
----
-
-## Tech Stack
-
-| Layer | Technology |
-|---|---|
-| Frontend | React 19, Vite, Tailwind CSS |
-| Backend | Python, FastAPI |
-| Email Generation | Groq API – Llama 3.3-70B Versatile |
-| Recipient Research | Perplexity Sonar API (real-time web search) |
-| Resume Parsing | PyPDF2 (PDF), plain text fallback |
-| Email Delivery | Gmail SMTP via App Password |
-| Database | SQLite (outreach logging) |
+Autonomous job-application agent: provide a job description + resume, and the agent extracts company details, finds contacts (Hunter.io), researches public web signals, writes personalized cold emails (Groq + `prompt.py`), and creates Gmail drafts for your review.
 
 ---
 
-## Features
+## How it works (8 steps)
 
-- **Resume upload** — Drag-and-drop or click to upload PDF, TXT, or MD (max 10MB); text is extracted and injected into the prompt
-- **Recipient research toggle** — Optional checkbox that calls Perplexity Sonar to pull real-time facts about the recipient and company before generating
-- **AI-generated emails** — Groq (Llama 3.3-70B) writes a personalized subject + body grounded in your resume, research context, job link, LinkedIn, and GitHub
-- **Prompt engineering** — Dedicated `prompt.py` with a structured system prompt that enforces crisp, role-specific outreach
-- **Live preview** — Review the generated email in `EmailPreview.jsx` before sending
-- **One-click delivery** — Send directly via Gmail SMTP from the UI
-- **Outreach logging** — Every send attempt (recipient, company, role, subject, body, status) is logged to a local SQLite DB via `db.py`
-- **Configurable API base URL** — Frontend reads `VITE_API_BASE_URL` from `.env` for easy staging/prod overrides
+1. Scrapling fetches the JD URL (or use pasted text)
+2. Groq extracts company, role, tech stack, talking points
+3. Scrapling scrapes company `/about` + `/blog` (public pages)
+4. Hunter.io domain search + deterministic contact ranking
+5. **You review/edit contacts** (mandatory gate)
+6. DuckDuckGo public signals per contact
+7. Groq summarizes → `public_signals_about_contact`
+8. Groq writes emails → Gmail drafts (or in-app preview)
+
+**No LinkedIn API.** JD-first personalization + public web only.
 
 ---
 
-## Project Structure
+## Project structure
 
 ```
 OutreachAI/
-├── back/
-│   ├── app.py              # Consolidated FastAPI app (Perplexity + Gmail SMTP routes)
-│   ├── main.py             # Original modular FastAPI entry point
-│   ├── generator.py        # Groq email generation logic
-│   ├── mailer.py           # Gmail SMTP send function
-│   ├── db.py               # SQLite logging (insert + query)
-│   ├── prompt.py           # SYSTEM_PROMPT + build_user_prompt()
-│   ├── resume_parser.py    # PyPDF2-based PDF + text extraction
-│   └── emails.db           # Auto-created SQLite database
-└── front/
-    └── src/
-        └── components/
-            ├── EmailForm.jsx       # Input form, resume upload, research toggle
-            ├── EmailPreview.jsx    # Preview generated email before sending
-            └── SentConfirmation.jsx # Post-send success screen
+├── src/
+│   ├── back/
+│   │   ├── app.py              # FastAPI entry point
+│   │   ├── agent.py            # 8-step orchestrator (SSE)
+│   │   ├── jd_scraper.py       # Scrapling JD fetch
+│   │   ├── jd_parser.py        # Groq JD extraction
+│   │   ├── company_scraper.py  # Company public pages
+│   │   ├── web_search.py       # DuckDuckGo + signal summary
+│   │   ├── contact_finder.py   # Hunter + title ranking
+│   │   ├── hunter_client.py    # Hunter.io API
+│   │   ├── gmail_auth.py       # Gmail OAuth
+│   │   ├── gmail_drafts.py     # Gmail draft creation
+│   │   ├── generator.py        # Email generation
+│   │   ├── prompt.py           # Prompt engineering
+│   │   └── requirements.txt
+│   └── front/
+│       └── src/
+│           ├── App.jsx
+│           └── components/
+│               ├── JobInput.jsx
+│               ├── AgentProgress.jsx
+│               ├── ContactReview.jsx
+│               ├── DraftPreview.jsx
+│               └── DraftConfirmation.jsx
+└── README.md
 ```
 
 ---
 
-## Getting Started
-
-### Prerequisites
+## Prerequisites
 
 - Python 3.11+
 - Node.js 18+
 - [Groq API key](https://console.groq.com/)
-- [Perplexity API key](https://www.perplexity.ai/settings/api)
-- Gmail account with 2FA enabled + an [App Password](https://myaccount.google.com/apppasswords)
+- [Hunter.io API key](https://hunter.io/) (contact email discovery)
+- Gmail account + [Google Cloud OAuth](https://console.cloud.google.com/) (optional, for drafts)
 
-### Backend Setup
+---
+
+## Setup
+
+### Backend
 
 ```bash
-cd back
+cd src/back
 python3 -m venv venv
 source venv/bin/activate
-pip install fastapi uvicorn groq perplexityai pdfplumber PyPDF2 python-dotenv pydantic
+pip install -r requirements.txt
+
+# Required for JS-heavy job boards (~150MB download)
+playwright install chromium
 ```
 
-Export environment variables in the same terminal you run uvicorn from:
+Environment variables:
 
 ```bash
-export GROQ_API_KEY="your_groq_api_key"
-export PERPLEXITY_API_KEY="your_perplexity_api_key"
-export GMAIL_USER="your_gmail@gmail.com"
-export GMAIL_APP_PASSWORD="your_16char_app_password"
+export GROQ_API_KEY="your_groq_key"
+export HUNTER_API_KEY="your_hunter_key"
+export GMAIL_USER="your@gmail.com"           # optional SMTP fallback
+export GMAIL_APP_PASSWORD="your_app_password"
+
+# Gmail OAuth (optional)
+export GOOGLE_CLIENT_ID="..."
+export GOOGLE_CLIENT_SECRET="..."
+export GOOGLE_REDIRECT_URI="http://localhost:8000/auth/gmail/callback"
+export FRONTEND_URL="http://localhost:5173"
 ```
 
-Start the server:
+Start API:
 
 ```bash
 uvicorn app:app --reload
 ```
 
-API runs at `http://localhost:8000`. Swagger docs at `http://localhost:8000/docs`.
-
-### Frontend Setup
+### Frontend
 
 ```bash
-cd front
+cd src/front
 npm install
 ```
 
-Create `front/.env`:
+Create `src/front/.env`:
 
 ```
 VITE_API_BASE_URL=http://localhost:8000
 ```
 
-Start the dev server:
-
 ```bash
 npm run dev
 ```
 
-App runs at `http://localhost:5173`.
+Open `http://localhost:5173`.
 
 ---
 
-## API Endpoints
+## Gmail OAuth setup
 
-### `GET /`
-Health check. Returns `{ "status": "running" }`.
+1. Create a Google Cloud project
+2. Enable **Gmail API**
+3. Configure OAuth consent screen (add your email as test user)
+4. Create OAuth client (Web application)
+5. Redirect URI: `http://localhost:8000/auth/gmail/callback`
+6. Scope: `https://www.googleapis.com/auth/gmail.compose`
+7. Set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`
 
----
-
-### `POST /parse-resume`
-Upload a resume file and get back extracted plain text.
-
-**Request:** `multipart/form-data` with a `file` field (PDF, TXT, or MD, max 10MB)
-
-**Response:**
-```json
-{ "resume_text": "..." }
-```
+Click **Connect Gmail** in the app header to authorize.
 
 ---
 
-### `POST /research`
-Uses Perplexity Sonar to research the recipient and company in real time.
+## API endpoints
 
-**Request body:**
-```json
-{
-  "name": "Jane Smith",
-  "email": "jane@company.com",
-  "company": "Acme Corp",
-  "role": "Head of Engineering",
-  "job_url": "https://company.com/careers/job-id"
-}
-```
-
-**Response:**
-```json
-{ "research": "..." }
-```
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/agent/run` | SSE stream: steps 1–4, ends with `contacts_ready` |
+| POST | `/agent/confirm-contacts` | SSE stream: steps 6–8, ends with `drafts_ready` |
+| POST | `/agent/generate-emails` | Retry failed contacts (JSON) |
+| POST | `/gmail/create-drafts` | Create Gmail drafts from edited emails |
+| GET | `/auth/gmail/status` | `{ connected: bool }` |
+| GET | `/auth/gmail/login` | Redirect to Google OAuth |
+| GET/PUT | `/user/profile` | Resume persistence across sessions |
+| POST | `/parse-resume` | Upload resume → text |
 
 ---
 
-### `POST /generate-email`
-Generates a personalized cold email using Groq, grounded in resume + optional research.
+## Hunter.io confidence thresholds
 
-**Request body:**
-```json
-{
-  "name": "Jane Smith",
-  "email": "jane@company.com",
-  "company": "Acme Corp",
-  "role": "Head of Engineering",
-  "target_role": "Software Engineer",
-  "resume_text": "...",
-  "research_summary": "...",
-  "job_link": "https://...",
-  "linkedin": "https://linkedin.com/in/...",
-  "github": "https://github.com/...",
-  "sign_off": "Best regards",
-  "context": "..."
-}
-```
-
-**Response:**
-```json
-{ "subject": "...", "body": "..." }
-```
-
----
-
-### `POST /send-email`
-Sends the email via Gmail SMTP and returns send status.
-
-**Request body:**
-```json
-{
-  "to_email": "jane@company.com",
-  "subject": "...",
-  "body": "..."
-}
-```
-
-**Response:**
-```json
-{ "status": "sent" }
-```
-
----
-
-## Environment Variables
-
-| Variable | Description |
-|---|---|
-| `GROQ_API_KEY` | Groq API key for LLM email generation |
-| `PERPLEXITY_API_KEY` | Perplexity Sonar API key for recipient research |
-| `GMAIL_USER` | Gmail address to send from |
-| `GMAIL_APP_PASSWORD` | Gmail App Password (16 chars, no spaces) |
-| `VITE_API_BASE_URL` | Frontend base URL for API calls (e.g. `http://localhost:8000`) |
+| Confidence | Behavior |
+|------------|----------|
+| ≥ 85 | Email used as-is |
+| 50–84 | Yellow warning in contact review |
+| < 50 | Email left blank for manual entry |
 
 ---
 
