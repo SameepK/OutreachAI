@@ -28,19 +28,19 @@ logger = logging.getLogger(__name__)
 _playwright_warning_logged = False
 
 
-def check_playwright_installed() -> bool:
+async def check_playwright_installed() -> bool:
     try:
-        from playwright.sync_api import sync_playwright
+        from playwright.async_api import async_playwright
 
-        with sync_playwright() as p:
+        async with async_playwright() as p:
             return p.chromium is not None
     except Exception:
         return False
 
 
-def warn_playwright_if_missing() -> str | None:
+async def warn_playwright_if_missing() -> str | None:
     global _playwright_warning_logged
-    if check_playwright_installed():
+    if await check_playwright_installed():
         return None
     msg = (
         "Playwright Chromium is not installed. JS-heavy job pages may fail. "
@@ -67,7 +67,7 @@ async def run_agent_phase_one(
 ) -> AsyncGenerator[str, None]:
     application_id = str(uuid.uuid4())
 
-    pw_warning = warn_playwright_if_missing()
+    pw_warning = await warn_playwright_if_missing()
     if pw_warning:
         yield await _emit({"type": "warning", "message": pw_warning})
 
