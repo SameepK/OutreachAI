@@ -1,5 +1,6 @@
 import base64
 import logging
+import re
 from email.mime.text import MIMEText
 
 from googleapiclient.discovery import build
@@ -7,6 +8,8 @@ from googleapiclient.discovery import build
 from gmail_auth import get_credentials
 
 logger = logging.getLogger(__name__)
+
+_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
 def _build_service():
@@ -39,6 +42,9 @@ def create_drafts(drafts: list[dict]) -> dict:
         to_email = d.get("to_email") or d.get("email")
         if not to_email:
             errors.append({"contact_id": d.get("contact_id"), "error": "Missing email"})
+            continue
+        if not _EMAIL_RE.match(to_email):
+            errors.append({"contact_id": d.get("contact_id"), "error": f"Invalid email format: {to_email}"})
             continue
         try:
             draft_id = create_draft(to_email, d.get("subject", ""), d.get("body", ""))

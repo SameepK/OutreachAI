@@ -1,14 +1,12 @@
 import os
+import secrets
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, UploadFile, File, Request
+from fastapi import Depends, FastAPI, Header, HTTPException, UploadFile, File, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, RedirectResponse
 from pydantic import BaseModel
 
-from generator import generate_email
-from mailer import send_email
 from db import (
-    insert_email,
     get_user_profile,
     upsert_user_profile,
     get_application,
@@ -22,49 +20,29 @@ load_dotenv()
 
 app = FastAPI(title="OutreachAI Job Application Agent")
 
-origins = [
-    "http://localhost:5173",
-    "http://localhost:5180",
-    "http://localhost:5181",
-    "http://localhost:5182",
-    "http://127.0.0.1:5173",
-    "http://127.0.0.1:5180",
-    "http://127.0.0.1:5181",
-    "http://127.0.0.1:5182",
-]
+APP_API_KEY = os.getenv("APP_API_KEY")
+if not APP_API_KEY:
+    APP_API_KEY = secrets.token_urlsafe(24)
+    print(
+        f"[app] No APP_API_KEY set. Generated a temporary key for this run:\n"
+        f"[app]   {APP_API_KEY}\n"
+        f"[app] Set APP_API_KEY in .env to keep it stable across restarts."
+    )
+
+
+def require_api_key(x_api_key: str = Header(default="")) -> None:
+    if not secrets.compare_digest(x_api_key, APP_API_KEY):
+        raise HTTPException(status_code=401, detail="Invalid or missing API key")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origin_regex=r"^http://(localhost|127\.0\.0\.1):\d+$",
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT"],
+    allow_headers=["Content-Type", "X-API-Key"],
 )
 
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
-
-
-class GenerateEmailRequest(BaseModel):
-    name: str
-    email: str
-    company: str
-    role: str
-    public_signals_about_contact: str = ""
-    resume_text: str
-    target_role: str
-    job_link: str = ""
-    linkedin: str = ""
-    github: str = ""
-    sign_off: str = "Best regards"
-
-
-class SendEmailRequest(BaseModel):
-    to_name: str
-    to_email: str
-    company: str
-    role: str
-    subject: str
-    body: str
 
 
 class AgentRunRequest(BaseModel):
@@ -152,7 +130,7 @@ def update_profile(payload: UserProfileRequest):
     )
 
 
-@app.post("/agent/run")
+@app.post("/agent/run", dependencies=[Depends(require_api_key)])
 async def agent_run(payload: AgentRunRequest):
     if not payload.resume_text.strip():
         raise HTTPException(status_code=400, detail="resume_text is required")
@@ -172,7 +150,7 @@ async def agent_run(payload: AgentRunRequest):
     )
 
 
-@app.post("/agent/confirm-contacts")
+@app.post("/agent/confirm-contacts", dependencies=[Depends(require_api_key)])
 async def agent_confirm_contacts(payload: ConfirmContactsRequest):
     contacts = [c.model_dump() for c in payload.contacts]
     return StreamingResponse(
@@ -182,7 +160,7 @@ async def agent_confirm_contacts(payload: ConfirmContactsRequest):
     )
 
 
-@app.post("/agent/generate-emails")
+@app.post("/agent/generate-emails", dependencies=[Depends(require_api_key)])
 async def agent_generate_emails(payload: GenerateEmailsRequest):
     try:
         return await generate_emails_for_contacts(
@@ -201,55 +179,6 @@ def get_application_route(application_id: str):
     if not app_data:
         raise HTTPException(status_code=404, detail="Application not found")
     return app_data
-
-
-@app.post("/generate-email")
-def generate_email_route(payload: GenerateEmailRequest):
-    if not payload.resume_text.strip():
-        raise HTTPException(status_code=400, detail="resume_text is required")
-
-    try:
-        result = generate_email(
-            name=payload.name,
-            company=payload.company,
-            role=payload.role,
-            public_signals_about_contact=payload.public_signals_about_contact,
-            resume_text=payload.resume_text,
-            target_role=payload.target_role,
-            job_link=payload.job_link,
-            linkedin=payload.linkedin,
-            github=payload.github,
-            sign_off=payload.sign_off,
-        )
-        return {"subject": result["subject"], "body": result["body"]}
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.post("/send-email")
-def send_email_route(payload: SendEmailRequest):
-    success = send_email(payload.to_email, payload.subject, payload.body)
-    status = "sent" if success else "failed"
-
-    insert_email(
-        to_name=payload.to_name,
-        to_email=payload.to_email,
-        company=payload.company,
-        role=payload.role,
-        subject=payload.subject,
-        body=payload.body,
-        status=status,
-    )
-
-    if not success:
-        raise HTTPException(
-            status_code=500,
-            detail="Failed to send email. Check GMAIL_USER and GMAIL_APP_PASSWORD.",
-        )
-
-    return {"status": "sent"}
 
 
 @app.get("/auth/gmail/status")
@@ -277,7 +206,7 @@ def gmail_callback(request: Request):
     return RedirectResponse(f"{FRONTEND_URL}?gmail=connected")
 
 
-@app.post("/gmail/create-drafts")
+@app.post("/gmail/create-drafts", dependencies=[Depends(require_api_key)])
 def gmail_create_drafts(payload: CreateDraftsRequest):
     draft_dicts = []
     for d in payload.drafts:

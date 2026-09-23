@@ -4,7 +4,7 @@ import AgentProgress from "./components/AgentProgress";
 import ContactReview from "./components/ContactReview";
 import DraftPreview from "./components/DraftPreview";
 import DraftConfirmation from "./components/DraftConfirmation";
-import { API_BASE_URL, parseSSEStream, checkGmailStatus } from "./api";
+import { API_BASE_URL, parseSSEStream, checkGmailStatus, authHeaders } from "./api";
 
 const STAGES = ["input", "progress", "contacts", "generating", "preview", "done"];
 
@@ -41,7 +41,7 @@ export default function App() {
     try {
       const res = await fetch(`${API_BASE_URL}/agent/run`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...authHeaders() },
         body: JSON.stringify({
           jd_text: input.jd_text,
           jd_url: input.jd_url,
@@ -89,7 +89,7 @@ export default function App() {
     try {
       const res = await fetch(`${API_BASE_URL}/agent/confirm-contacts`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...authHeaders() },
         body: JSON.stringify({
           application_id: applicationId,
           contacts: confirmedContacts,
