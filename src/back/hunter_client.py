@@ -43,26 +43,26 @@ def apply_email_confidence(email: str, confidence: int) -> tuple[str, str]:
     return "", "blank"
 
 
-def _domain_search_request(domain: str, limit: int) -> dict:
+def _domain_search_request(domain: str, limit: int, department: str | None) -> dict:
+    params = {
+        "domain": domain,
+        "api_key": _api_key(),
+        "limit": limit,
+    }
+    if department:
+        params["department"] = department
     with httpx.Client(timeout=30.0) as client:
-        response = client.get(
-            f"{HUNTER_BASE}/domain-search",
-            params={
-                "domain": domain,
-                "api_key": _api_key(),
-                "limit": limit,
-            },
-        )
+        response = client.get(f"{HUNTER_BASE}/domain-search", params=params)
         response.raise_for_status()
         return response.json().get("data", {})
 
 
-def domain_search(domain: str, limit: int = 10) -> list[dict]:
+def domain_search(domain: str, limit: int = 10, department: str | None = None) -> list[dict]:
     if not domain:
         return []
 
     try:
-        data = _domain_search_request(domain, limit)
+        data = _domain_search_request(domain, limit, department)
     except httpx.HTTPStatusError as e:
         detail = _hunter_error_detail(e.response)
         if (
@@ -75,7 +75,7 @@ def domain_search(domain: str, limit: int = 10) -> list[dict]:
                 domain, detail, PLAN_LIMIT_FALLBACK,
             )
             try:
-                data = _domain_search_request(domain, PLAN_LIMIT_FALLBACK)
+                data = _domain_search_request(domain, PLAN_LIMIT_FALLBACK, department)
             except httpx.HTTPStatusError as e2:
                 detail2 = _hunter_error_detail(e2.response)
                 logger.warning("Hunter domain search retry failed for %s: %s", domain, detail2)

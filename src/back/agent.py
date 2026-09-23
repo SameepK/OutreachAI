@@ -119,7 +119,9 @@ async def run_agent_phase_one(
     contacts: list[dict] = []
     if company_domain:
         try:
-            contacts = await asyncio.to_thread(find_contacts, company_domain, 5)
+            contacts = await asyncio.to_thread(
+                find_contacts, company_domain, job_details.get("role_title", ""), 5
+            )
         except Exception as e:
             logger.warning("Contact finding failed: %s", e)
             yield await _emit({"type": "warning", "message": f"Contact search failed: {e}"})
@@ -140,7 +142,9 @@ async def run_agent_phase_one(
                 ),
             })
             try:
-                contacts = await asyncio.to_thread(find_contacts, guessed_domain, 5)
+                contacts = await asyncio.to_thread(
+                    find_contacts, guessed_domain, job_details.get("role_title", ""), 5
+                )
             except Exception as e:
                 logger.warning("Contact finding failed for guessed domain %s: %s", guessed_domain, e)
 
