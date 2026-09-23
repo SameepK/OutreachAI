@@ -4,7 +4,7 @@ import AgentProgress from "./components/AgentProgress";
 import ContactReview from "./components/ContactReview";
 import DraftPreview from "./components/DraftPreview";
 import DraftConfirmation from "./components/DraftConfirmation";
-import { API_BASE_URL, parseSSEStream, checkGmailStatus, authHeaders } from "./api";
+import { API_BASE_URL, parseSSEStream, checkGmailStatus, authHeaders, clearResume } from "./api";
 
 const STAGES = ["input", "progress", "contacts", "generating", "preview", "done"];
 
@@ -197,6 +197,7 @@ export default function App() {
             onComplete={(result) => {
               setConfirmation(result);
               setStage("done");
+              clearResume().catch(() => {});
             }}
             onBack={() => setStage("contacts")}
           />

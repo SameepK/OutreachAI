@@ -48,6 +48,17 @@ export async function saveProfile(data) {
   return res.json();
 }
 
+export async function clearResume() {
+  const profile = await fetchProfile();
+  return saveProfile({
+    resume_text: "",
+    resume_filename: "",
+    linkedin: profile?.linkedin || "",
+    github: profile?.github || "",
+    sign_off: profile?.sign_off || "Best regards",
+  });
+}
+
 export async function checkGmailStatus() {
   const res = await fetch(`${API_BASE_URL}/auth/gmail/status`);
   if (!res.ok) return { connected: false };
