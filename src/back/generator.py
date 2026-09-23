@@ -7,7 +7,7 @@ from prompt import SYSTEM_PROMPT, build_user_prompt
 load_dotenv()
 
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
-MODEL = "llama-3.3-70b-versatile"
+MODEL = "openai/gpt-oss-120b"
 
 
 def generate_email(
@@ -42,6 +42,7 @@ def generate_email(
         ],
         model=MODEL,
         response_format={"type": "json_object"},
+        reasoning_effort="low",
     )
 
     message_content = chat_completion.choices[0].message.content.strip()

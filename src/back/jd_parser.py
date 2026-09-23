@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
-MODEL = "llama-3.3-70b-versatile"
+MODEL = "openai/gpt-oss-120b"
 
 
 def parse_jd(raw_jd_text: str, job_url: str = "") -> dict:
@@ -38,6 +38,7 @@ Job description:
         ],
         response_format={"type": "json_object"},
         temperature=0.1,
+        reasoning_effort="low",
     )
 
     data = json.loads(response.choices[0].message.content)

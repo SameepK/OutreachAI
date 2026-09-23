@@ -10,7 +10,7 @@ load_dotenv()
 
 logger = logging.getLogger(__name__)
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
-MODEL = "llama-3.3-70b-versatile"
+MODEL = "openai/gpt-oss-120b"
 
 _last_ddg_call = 0.0
 DDG_MIN_INTERVAL = 1.5
@@ -107,5 +107,6 @@ Output plain text bullet points only, no JSON."""
         ],
         temperature=0.2,
         max_tokens=200,
+        reasoning_effort="low",
     )
     return response.choices[0].message.content.strip()
