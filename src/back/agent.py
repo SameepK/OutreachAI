@@ -124,6 +124,35 @@ async def run_agent_phase_one(
             logger.warning("Contact finding failed: %s", e)
             yield await _emit({"type": "warning", "message": f"Contact search failed: {e}"})
 
+    if not contacts and company_name:
+        guessed_domain = company_name.lower().replace(" ", "").replace(",", "") + ".com"
+        if guessed_domain != company_domain:
+            logger.info(
+                "No contacts for extracted domain %r, trying guessed domain %r",
+                company_domain, guessed_domain,
+            )
+            yield await _emit({
+                "type": "warning",
+                "message": (
+                    f"Could not find contacts for domain "
+                    f"'{company_domain or '(none extracted)'}'. "
+                    f"Trying guessed domain '{guessed_domain}'..."
+                ),
+            })
+            try:
+                contacts = await asyncio.to_thread(find_contacts, guessed_domain, 5)
+            except Exception as e:
+                logger.warning("Contact finding failed for guessed domain %s: %s", guessed_domain, e)
+
+    if not contacts:
+        yield await _emit({
+            "type": "warning",
+            "message": (
+                "Could not determine a company domain or Hunter found no contacts. "
+                "Please add contacts manually in the next step."
+            ),
+        })
+
     create_application(
         application_id=application_id,
         company=company_name,
