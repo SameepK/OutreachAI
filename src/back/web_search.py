@@ -1,6 +1,7 @@
 import os
 import time
 import logging
+import httpx
 from groq import Groq
 from dotenv import load_dotenv
 
@@ -12,8 +13,38 @@ logger = logging.getLogger(__name__)
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 MODEL = "openai/gpt-oss-120b"
 
+PERPLEXITY_BASE = "https://api.perplexity.ai"
+
 _last_ddg_call = 0.0
 DDG_MIN_INTERVAL = 1.5
+
+
+def research_contact_via_perplexity(name: str, company: str) -> list[str]:
+    api_key = os.getenv("PERPLEXITY_API_KEY")
+    if not api_key:
+        raise RuntimeError("PERPLEXITY_API_KEY is not set")
+
+    prompt = (
+        f"Give a concise, cited summary of {name}'s public professional "
+        f"background and activity (talks, posts, projects, career history), "
+        f"especially anything relevant to their work at {company}. "
+        f"Cite sources inline."
+    )
+
+    with httpx.Client(timeout=20.0) as http_client:
+        response = http_client.post(
+            f"{PERPLEXITY_BASE}/chat/completions",
+            headers={"Authorization": f"Bearer {api_key}"},
+            json={
+                "model": "sonar",
+                "messages": [{"role": "user", "content": prompt}],
+            },
+        )
+        response.raise_for_status()
+        data = response.json()
+
+    content = (data["choices"][0]["message"]["content"] or "").strip()
+    return [content] if content else []
 
 
 def _ddg_search(query: str, max_results: int = 5) -> list[str]:
@@ -56,6 +87,17 @@ def search_company_signals(company: str) -> list[str]:
 
 
 def search_person_signals(name: str, company: str) -> list[str]:
+    if os.getenv("PERPLEXITY_API_KEY"):
+        try:
+            result = research_contact_via_perplexity(name, company)
+            if result:
+                return result
+        except Exception as e:
+            logger.warning(
+                "Perplexity research failed for %s at %s: %s; falling back to DuckDuckGo",
+                name, company, e,
+            )
+
     results: list[str] = []
     for q in [
         f'site:linkedin.com/in "{name}" "{company}"',
@@ -83,6 +125,12 @@ def summarize_public_signals(
     prompt = f"""Given the inputs below, write 2-3 specific talking points for a cold email to {name} ({role} at {company}).
 Use ONLY verifiable facts from the inputs. Max 100 words total.
 If nothing specific about the person, say "[none provided]" for person-specific points and rely on company/JD points.
+If the input contains ONLY GENERIC_COMPANY_INFO tagged content with no
+SPECIFIC_RECENT_SIGNAL present, output exactly "[none provided]" instead of
+writing bullet points from the generic content. Do not paraphrase, summarize,
+or extract talking points from GENERIC_COMPANY_INFO-only input, mission
+statements and about-us language are not usable signal. Only write bullets
+when SPECIFIC_RECENT_SIGNAL content exists, and only from that content.
 User-provided context (highest priority): {user_context or "[none]"}
 
 JD talking points:

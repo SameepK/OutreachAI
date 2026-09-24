@@ -66,6 +66,15 @@ Hard constraints:
   what it involves, why it matters) instead of fabricating a company
   detail. NOT generic. Do NOT start with "I". Must feel written
   specifically for this person or this role.
+- When choosing the paragraph 1 hook, STRONGLY prefer
+  SPECIFIC_RECENT_SIGNAL content (a named product, launch, funding
+  round, technical initiative, or dated event) over
+  GENERIC_COMPANY_INFO (mission statements, "about us" language, value
+  propositions). Restating a company's own mission/values language is
+  NOT personalization and must not be used as the hook if any
+  specific, dated, or named signal is available instead, even a thin
+  one. Only fall back to generic company framing (or the role-based
+  fallback) if truly no specific signal exists in either source.
 - Paragraph 2 (proof): Exactly 1 quantified achievement from resume
   only. Use ONLY a metric explicitly stated in my_resume_text. Do NOT
   invent or infer numbers not present in the resume. Choose the
@@ -77,6 +86,16 @@ Hard constraints:
   verb, (b) what kind of system or product it was, (c) who or what it
   served or scaled to. A bare number with no named system and no
   named audience/scale fails this requirement.
+- When citing the proof point, explicitly name where/how it happened —
+  the specific company or project it came from, exactly as stated in
+  my_resume_text (e.g. "At CoolR Group, I built..." or "In my
+  [project name] project, I..."). This attribution must be copied
+  from my_resume_text's actual company/project name associated with
+  that bullet — never invented, never generalized (e.g. do not say
+  "in a previous role" if the resume names the actual company). If
+  my_resume_text's structure makes it unclear which company a given
+  bullet belongs to, choose a different bullet where the attribution
+  is unambiguous rather than guessing.
 - Paragraph 3 (bridge): state what the applicant brings or can
   contribute, connected to the role. Do NOT assert what the company
   "needs" or "requires" as fact unless it is explicitly stated in
@@ -185,6 +204,13 @@ Quality checks (must pass before returning):
   bullet has no stated audience/context, either select a different
   resume bullet that does, or state the metric alone without
   inventing a system/audience description.
+- Paragraph 2 must name the specific company/project the proof point
+  came from, sourced directly from my_resume_text — not a vague
+  reference like "in a previous role" or "in my experience".
+- Paragraph 1's hook prefers SPECIFIC_RECENT_SIGNAL content (named
+  product, launch, funding, initiative, dated event) over
+  GENERIC_COMPANY_INFO (mission/values language). Generic mission
+  restatement is not used as the hook when any specific signal exists.
 - Every specific fact, number, or claim about the COMPANY in
   paragraphs 1 and 3 must be traceable to public_signals_about_contact,
   job_link, or role_title. If no such source exists for a claim, do

@@ -28,6 +28,18 @@ logger = logging.getLogger(__name__)
 _playwright_warning_logged = False
 
 
+def _tag_company_signals(company_pages: dict, company_ddg: list) -> dict[str, str]:
+    """Tag company_pages (static/about-us content) and company_ddg (fresh
+    web search results) distinctly so the downstream prompt can tell generic
+    company info apart from specific, recent signals."""
+    generic = "\n".join(v for v in company_pages.values() if v)
+    specific = "\n".join(company_ddg[:5])
+    return {
+        "GENERIC_COMPANY_INFO": generic,
+        "SPECIFIC_RECENT_SIGNAL": specific,
+    }
+
+
 async def check_playwright_installed() -> bool:
     try:
         from playwright.async_api import async_playwright
@@ -233,7 +245,7 @@ async def confirm_and_generate(
             company_name,
             role,
             jd_talking_points,
-            {**company_pages, "web": "\n".join(company_ddg[:5])},
+            _tag_company_signals(company_pages, company_ddg),
             person_snippets,
             user_context,
         )
@@ -323,7 +335,7 @@ async def generate_emails_for_contacts(
                 company_name,
                 role,
                 job_details.get("talking_points_from_jd", []),
-                state.get("company_pages", {}),
+                _tag_company_signals(state.get("company_pages", {}), state.get("company_ddg", [])),
                 person_snippets,
                 state.get("user_context", ""),
             )
