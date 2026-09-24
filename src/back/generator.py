@@ -50,9 +50,14 @@ def generate_email(
     message_content = chat_completion.choices[0].message.content.strip()
     email_data = json.loads(message_content)
 
+    subject = email_data.get("subject", "").strip()
+    body = email_data.get("email_body", email_data.get("body", "")).strip()
+    if not subject or not body:
+        raise ValueError("Model returned empty subject or body")
+
     return {
-        "subject": email_data.get("subject", ""),
-        "body": email_data.get("email_body", email_data.get("body", "")),
+        "subject": subject,
+        "body": body,
     }
 
 
