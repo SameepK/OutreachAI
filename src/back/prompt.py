@@ -16,18 +16,27 @@ Inputs:
 Goals:
 1) Write a crisp subject line and a concise cold email for the specified role.
 2) Personalize to the RECIPIENT by referencing something specific about
-   the COMPANY or RECIPIENT's work. Opening line must reference company
-   or recipient work. Frame it around THEM, not the applicant.
-3) Include 1-2 quantified proof points from my_resume_text that directly
-   map to the role's core outcomes. Add one sentence of context: what
-   type of system, at what scale, or for what kind of product. Never
-   drop a number without context.
-4) Add a bridge paragraph connecting the applicant's background to the
-   company's specific needs. Frame it around THEIR challenges, not the
-   applicant's expertise. Use "you" more than "I" in this paragraph.
-5) Close with a soft CTA. End the email body with exactly:
-   "If my background seems relevant, I'd love to connect. Happy to
-   share a short summary or a code sample."
+   the COMPANY or RECIPIENT's work, sourced ONLY from
+   public_signals_about_contact, job_link, or role_title. Never invent
+   or infer a company fact, roadmap, timeline, or number from general
+   knowledge of the company. If public_signals_about_contact is
+   [none provided] and job_link gives nothing company-specific, open
+   paragraph 1 around the ROLE itself instead. Frame it around THEM
+   (or the role), not the applicant.
+3) Include exactly 1 quantified proof point from my_resume_text that
+   maps to the role's core outcomes, chosen for being impressive
+   relative to THIS company's specific scale or domain, not merely
+   topically relevant. Add one sentence of context naming: what the
+   applicant did, what kind of system/product it was, and who or what
+   it served or scaled to. Never drop a number without that context.
+4) Add a bridge paragraph stating what the applicant brings or can
+   contribute, tied to the role. Do NOT declare what the company
+   "needs" or "requires" as fact unless that is explicitly stated in
+   role_title or job_link. Never lecture the company about its own
+   hiring needs. Let fit be implied by the proof point, not asserted.
+   Use "you" more than "I" in this paragraph where it reads naturally.
+5) Close with ONE specific, time-bound call-to-action unique to this
+   email. Never reuse a fixed, generic closing sentence across emails.
    Then sign off with exact spacing:
    [sign_off],
 
@@ -39,21 +48,45 @@ Hard constraints:
 - Subject: 3-7 words, no emojis, no ALL CAPS, no "Application for",
   no "Inquiry about", no "Exploring opportunities". Keep it human and
   specific. Examples: "Real-time systems at Dropbox", "Scaling ML at Google"
-- Email body: exactly 4 paragraphs, total 110-160 words,
+- Email body: exactly 4 paragraphs, total 90-120 words,
   no bullets, no bold, no markdown.
 - Tone: professional, direct, concrete. Zero flattery, zero apology.
-- Greet with first name only: "Hi John," NOT "Hi John Smith,"
-- Paragraph 1 (hook): frame around COMPANY or RECIPIENT. Specific
-  product, initiative, tech stack, or domain challenge. NOT generic.
-  Do NOT start with "I". Must feel written specifically for this person.
-- Paragraph 2 (proof): 1-2 quantified achievements from resume only.
-  Use ONLY metrics explicitly stated in my_resume_text. Do NOT invent
-  or infer numbers not present in the resume. Start with a strong verb.
-  Add context: what type of system or product these results came from.
-- Paragraph 3 (bridge): frame around THEIR needs, not applicant's skills.
-  Connect applicant's work to a specific company challenge or tech stack.
-  Use more "you/your" than "I/my" in this paragraph.
-- Paragraph 4 (soft CTA + sign-off): exact closing line then sign-off.
+- Greet with first name only: "Hi John," NOT "Hi John Smith,". The
+  greeting is its OWN line, followed by a blank line, then paragraph
+  1's hook sentence starts fresh on the next line. Never fuse the
+  greeting and the hook into one sentence like "Hi John, I saw...".
+- NEVER state a specific company fact, product detail, roadmap,
+  timeline, or number anywhere in the email unless it is sourced from
+  public_signals_about_contact, job_link, or role_title.
+- Paragraph 1 (hook): frame around COMPANY, RECIPIENT, or the ROLE.
+  Any specific fact used here must be sourced from
+  public_signals_about_contact, job_link, or role_title. If
+  public_signals_about_contact is [none provided] and job_link gives
+  nothing company-specific, open around the ROLE itself (role_title,
+  what it involves, why it matters) instead of fabricating a company
+  detail. NOT generic. Do NOT start with "I". Must feel written
+  specifically for this person or this role.
+- Paragraph 2 (proof): Exactly 1 quantified achievement from resume
+  only. Use ONLY a metric explicitly stated in my_resume_text. Do NOT
+  invent or infer numbers not present in the resume. Choose the
+  single achievement most impressive relative to company_name's
+  actual scale or domain, not merely the most topically similar one.
+  Never lead with a stat that would read as weak to a high-scale
+  audience. The sentence must explicitly state, in this order: (a)
+  what the applicant personally did, starting with "I" + a strong
+  verb, (b) what kind of system or product it was, (c) who or what it
+  served or scaled to. A bare number with no named system and no
+  named audience/scale fails this requirement.
+- Paragraph 3 (bridge): state what the applicant brings or can
+  contribute, connected to the role. Do NOT assert what the company
+  "needs" or "requires" as fact unless it is explicitly stated in
+  role_title or job_link. Never phrase this as diagnosing or
+  lecturing the company about its own needs. Let fit be implied by
+  the proof point, not stated outright. Use more "you/your" than
+  "I/my" in this paragraph where it reads naturally.
+- Paragraph 4 (CTA + sign-off): one specific, time-bound
+  call-to-action unique to this email, never a fixed reused sentence,
+  then sign-off.
 - Paragraphs 1 and 3 must NOT start with "My", "I've", "I built", "I am".
 - Paragraph 2 is the only paragraph that can be I-focused.
 - If job_link is [not provided] — do NOT mention any job link.
@@ -77,23 +110,38 @@ Method:
 1) From role_title and company_name, infer the role's core outcomes.
 2) From my_resume_text:
    - Extract sender's full name for sign-off
-   - Select ONLY achievements with numbers explicitly stated in the resume
-   - Add one sentence of context per metric: what system, what scale,
-     what type of product
-   - Do NOT fabricate or infer metrics not present in the resume
-3) From public_signals_about_contact or company_name domain, derive
-   1-2 specific anchor topics about the COMPANY or RECIPIENT.
-   If none provided, use what the company is technically known for.
-   Never use vague descriptors — always tie to a specific product,
-   team, challenge, or initiative.
+   - Select the single achievement with a number explicitly stated in
+     the resume that is most impressive relative to company_name's
+     actual scale or domain, not just the most topically relevant one
+   - State it as: "I" + strong verb + what was done, the type of
+     system/product, and who or what it served or scaled to
+   - Do NOT fabricate or infer metrics, systems, or audiences not
+     present in the resume
+3) Anchor topics must come ONLY from public_signals_about_contact,
+   job_link, or role_title. NEVER state a specific company fact,
+   product detail, roadmap, timeline, or number unless it appears (or
+   is a direct paraphrase of something) in one of those three fields.
+   If public_signals_about_contact is [none provided] and job_link
+   gives no company-specific detail, do NOT invent one — open
+   paragraph 1 around the ROLE itself instead. Never use vague
+   descriptors — always tie to a specific product, team, challenge,
+   initiative, or the role itself.
 4) Draft exactly 4 paragraphs:
-   - Paragraph 1: Hi [first name only], + one specific sentence about
-     COMPANY or RECIPIENT's actual work. Frame around them. No "I" start.
-   - Paragraph 2: 1-2 quantified wins from resume with context.
-     Strong opening verb. Only use numbers from the resume.
-   - Paragraph 3: bridge framed around THEIR needs. More "you" than "I".
-     Tie applicant's specific work to company's specific challenge.
-   - Paragraph 4: exact soft CTA line + sign-off block with spacing.
+   - Paragraph 1: "Hi [first name]," on its own line, then a blank
+     line, then one specific sentence about COMPANY or RECIPIENT's
+     actual work (or about the ROLE itself if no real signal exists)
+     starting fresh on the next line. Frame around them or the role.
+     No "I" start for the hook sentence.
+   - Paragraph 2: exactly 1 quantified win from resume, chosen for
+     scale-appropriate impressiveness, with full context (what I did,
+     what system, who/what it served or scaled to). Strong opening
+     verb. Only use numbers from the resume.
+   - Paragraph 3: state what the applicant brings or can contribute,
+     tied to the role. Do not assert company needs as fact unless
+     sourced from role_title/job_link. Let fit be implied by the
+     proof point, not declared.
+   - Paragraph 4: one specific, time-bound CTA unique to this email
+     (never a fixed reused sentence) + sign-off block with spacing.
 5) Short sentences. Concrete verbs: shipped, scaled, reduced,
    improved, automated, designed, built, optimized.
 
@@ -107,6 +155,9 @@ Output format (JSON only):
 Formatting rules:
 - "subject" is a single line (3-7 words).
 - "email_body" uses \\n\\n for paragraph breaks; no markdown, no bullets.
+- The greeting line and paragraph 1's hook sentence are separated by
+  \\n\\n even though they are conceptually part of paragraph 1 for the
+  4-paragraph structure.
 - Sign-off block separated from CTA sentence by \\n\\n.
 - Each sign-off element (name, linkedin, github) on its own line
   using \\n between them.
@@ -115,14 +166,38 @@ Formatting rules:
 Quality checks (must pass before returning):
 - Subject <= 7 words, human and specific, no corporate phrasing.
 - Email body is exactly 4 paragraphs.
-- Email body is 110-160 words total.
-- Greeting uses first name only.
-- Paragraph 1 references specific COMPANY or RECIPIENT work, not vague.
-  Does NOT start with "I".
-- Paragraph 2 contains only metrics explicitly in the resume. Has context.
-- Paragraph 3 is framed around company needs. Uses more "you" than "I".
-  Does NOT start with "My" or "I".
-- Paragraph 4 closes with exact soft CTA (no em dash).
+- Email body is 90-120 words total.
+- Greeting uses first name only, on its own line, separated from
+  paragraph 1's hook sentence by a blank line (not fused into one
+  sentence).
+- Paragraph 1 references specific COMPANY/RECIPIENT work, or the role
+  itself if no real signal exists. Any specific fact used traces to
+  public_signals_about_contact, job_link, or role_title — never
+  invented. Does NOT start with "I".
+- No fabricated company facts, roadmap, timeline, or number anywhere
+  (must trace to public_signals_about_contact, job_link, or role_title).
+- Paragraph 2 contains exactly 1 metric, explicitly in the resume,
+  chosen for scale-appropriate impressiveness (not merely topical).
+  Names what I did, what system/product, and who/what it served or
+  scaled to. A bare number with no named system/audience fails.
+  Only include contextual detail (audience, system type, scale) that
+  is explicitly present in my_resume_text — if the chosen metric
+  bullet has no stated audience/context, either select a different
+  resume bullet that does, or state the metric alone without
+  inventing a system/audience description.
+- Every specific fact, number, or claim about the COMPANY in
+  paragraphs 1 and 3 must be traceable to public_signals_about_contact,
+  job_link, or role_title. If no such source exists for a claim, do
+  not include it — a vaguer, unsourced-free sentence is correct; a
+  specific but fabricated one is a failure. This check applies even to
+  plausible-sounding industry-standard claims (e.g. "processes
+  millions of transactions", "requires 99.99% uptime") — if it wasn't
+  in the provided inputs, it doesn't go in the email.
+- Paragraph 3 states what the applicant brings, not asserted company
+  needs (unless sourced from role_title/job_link). Fit is implied via
+  the proof point, not declared. Does NOT start with "My" or "I".
+- Paragraph 4 closes with a specific, time-bound CTA unique to this
+  email (no em dash). Must NOT be a fixed, reused sentence.
 - Sign-off is properly spaced with name and optional links.
 - No em dashes anywhere.
 - No banned phrases anywhere.
