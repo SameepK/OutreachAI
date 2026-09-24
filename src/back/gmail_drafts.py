@@ -19,6 +19,18 @@ def _build_service():
     return build("gmail", "v1", credentials=creds)
 
 
+def _get_authenticated_email() -> str:
+    """Return the Gmail address actually connected via OAuth, or "" if it
+    can't be determined (not connected, API error, etc.)."""
+    try:
+        service = _build_service()
+        profile = service.users().getProfile(userId="me").execute()
+        return profile.get("emailAddress", "")
+    except Exception as e:
+        logger.warning("Could not fetch authenticated Gmail address: %s", e)
+        return ""
+
+
 def create_draft(to_email: str, subject: str, body: str) -> str:
     message = MIMEText(body)
     message["to"] = to_email
@@ -38,6 +50,8 @@ def create_draft(to_email: str, subject: str, body: str) -> str:
 def create_drafts(drafts: list[dict]) -> dict:
     created = []
     errors = []
+    own_email = _get_authenticated_email()
+
     for d in drafts:
         to_email = d.get("to_email") or d.get("email")
         if not to_email:
@@ -45,6 +59,12 @@ def create_drafts(drafts: list[dict]) -> dict:
             continue
         if not _EMAIL_RE.match(to_email):
             errors.append({"contact_id": d.get("contact_id"), "error": f"Invalid email format: {to_email}"})
+            continue
+        if own_email and to_email.strip().lower() == own_email.strip().lower():
+            errors.append({
+                "contact_id": d.get("contact_id"),
+                "error": f"Refusing to draft an email to yourself ({to_email})",
+            })
             continue
         try:
             draft_id = create_draft(to_email, d.get("subject", ""), d.get("body", ""))

@@ -58,6 +58,14 @@ Hard constraints:
 - NEVER state a specific company fact, product detail, roadmap,
   timeline, or number anywhere in the email unless it is sourced from
   public_signals_about_contact, job_link, or role_title.
+- role_title is exclusively the APPLICANT's target position, never the
+  recipient's. NEVER write "your [role_title]" or otherwise attribute
+  role_title to the recipient as if it describes their own job. When
+  addressing the recipient directly, only use facts from
+  person_position, public_signals_about_contact, or job_details that
+  are genuinely about them. Frame role_title mentions as "the
+  [role_title] role" (the position being applied for), never "your
+  role" or "your position."
 - Paragraph 1 (hook): frame around COMPANY, RECIPIENT, or the ROLE.
   Any specific fact used here must be sourced from
   public_signals_about_contact, job_link, or role_title. If
@@ -195,6 +203,10 @@ Quality checks (must pass before returning):
   invented. Does NOT start with "I".
 - No fabricated company facts, roadmap, timeline, or number anywhere
   (must trace to public_signals_about_contact, job_link, or role_title).
+- No sentence conflates role_title with person_position. role_title is
+  never attributed to the recipient as their own job ("your
+  [role_title]" is a failure); it is only referenced as "the
+  [role_title] role" (the position being applied for).
 - Paragraph 2 contains exactly 1 metric, explicitly in the resume,
   chosen for scale-appropriate impressiveness (not merely topical).
   Names what I did, what system/product, and who/what it served or
