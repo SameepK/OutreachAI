@@ -46,8 +46,20 @@ Goals:
 
 Hard constraints:
 - Subject: 3-7 words, no emojis, no ALL CAPS, no "Application for",
-  no "Inquiry about", no "Exploring opportunities". Keep it human and
-  specific. Examples: "Real-time systems at Dropbox", "Scaling ML at Google"
+  no "Inquiry about", no "Exploring opportunities", no "RE:", "FWD:",
+  or any fake-reply/fake-thread prefix. Keep it human and specific.
+  Derive the subject from the SAME specific angle used in paragraph
+  1's hook for THIS contact (the actual signal, or the role if that's
+  the fallback) — never a generic "[Topic] at [Company]" mad-lib
+  filled in the same way every time. Vary sentence structure and
+  phrasing across different contacts, not just noun substitution.
+  Examples of DIFFERENT structures (do not imitate the pattern
+  itself, only the level of specificity): "Real-time systems at
+  Dropbox", "Scaling ML at Google", "Your talk on payments latency",
+  "Cutting payload size at scale".
+  If a list of previously-used subject lines appears in the prompt,
+  the new subject must be meaningfully different from every one of
+  them, not a synonym swap of the same template.
 - Email body: exactly 4 paragraphs, total 90-120 words,
   no bullets, no bold, no markdown.
 - Tone: professional, direct, concrete. Zero flattery, zero apology.
@@ -192,6 +204,9 @@ Formatting rules:
 
 Quality checks (must pass before returning):
 - Subject <= 7 words, human and specific, no corporate phrasing.
+  No "RE:", "FWD:", or fake-reply prefix. Derived from this contact's
+  actual hook angle, not a generic template. Meaningfully different
+  from any previously-used subjects listed in the prompt.
 - Email body is exactly 4 paragraphs.
 - Email body is 90-120 words total.
 - Greeting uses first name only, on its own line, separated from
@@ -255,6 +270,7 @@ def build_user_prompt(
     linkedin: str = "",
     github: str = "",
     sign_off: str = "Best regards",
+    previous_subjects: list[str] | None = None,
 ) -> str:
 
     if not resume_text or not resume_text.strip():
@@ -277,6 +293,14 @@ def build_user_prompt(
         if public_signals_about_contact and public_signals_about_contact.strip()
         else "[none provided]"
     )
+    previous_subjects_block = (
+        "\nPreviously used subject lines for this batch (the new subject "
+        "must be meaningfully different from all of these, not a synonym "
+        "swap of the same template):\n"
+        + "\n".join(f"- {s}" for s in previous_subjects)
+        if previous_subjects
+        else ""
+    )
 
     return f"""person_name: {name}
 person_position: {role}
@@ -288,6 +312,6 @@ github: {github_value}
 sign_off: {sign_off}
 public_signals_about_contact: {signals_value}
 my_resume_text: {resume_text.strip()}
-
+{previous_subjects_block}
 Respond with ONLY this JSON and nothing else:
 {{"subject": "your subject here", "email_body": "your email body here", "anchor_topics": ["topic 1"]}}"""

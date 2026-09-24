@@ -21,6 +21,7 @@ def generate_email(
     linkedin="",
     github="",
     sign_off="Best regards",
+    previous_subjects=None,
 ):
     user_prompt = build_user_prompt(
         name,
@@ -33,6 +34,7 @@ def generate_email(
         linkedin,
         github,
         sign_off,
+        previous_subjects,
     )
 
     chat_completion = client.chat.completions.create(

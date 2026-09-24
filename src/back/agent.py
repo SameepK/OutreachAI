@@ -217,6 +217,7 @@ async def confirm_and_generate(
 
     drafts: list[dict] = []
     failed: list[dict] = []
+    used_subjects: list[str] = []
 
     for i, contact in enumerate(saved_contacts):
         contact_id = contact.get("id")
@@ -272,7 +273,9 @@ async def confirm_and_generate(
                 linkedin,
                 github,
                 sign_off,
+                used_subjects,
             )
+            used_subjects.append(result["subject"])
             update_contact_draft(contact_id, result["subject"], result["body"], "success")
             drafts.append({
                 "contact_id": contact_id,
@@ -321,6 +324,9 @@ async def generate_emails_for_contacts(
 
     drafts = []
     failed = []
+    used_subjects = [
+        c["draft_subject"] for c in all_contacts if c.get("draft_subject")
+    ]
 
     for contact in targets:
         contact_id = contact["id"]
@@ -353,7 +359,9 @@ async def generate_emails_for_contacts(
                 state.get("linkedin", ""),
                 state.get("github", ""),
                 state.get("sign_off", "Best regards"),
+                used_subjects,
             )
+            used_subjects.append(result["subject"])
             update_contact_draft(contact_id, result["subject"], result["body"], "success")
             drafts.append({
                 "contact_id": contact_id,
