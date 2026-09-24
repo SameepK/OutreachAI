@@ -232,7 +232,23 @@ async def confirm_and_generate(
             "progress": f"{i + 1}/{len(saved_contacts)}",
         })
 
-        person_snippets = await asyncio.to_thread(search_person_signals, name, company_name)
+        person_snippets = await asyncio.to_thread(
+            search_person_signals, name, company_name, contact.get("linkedin_url", "")
+        )
+
+        mismatch_note = next(
+            (s for s in person_snippets if s.startswith("EMPLOYMENT_MISMATCH:")), None
+        )
+        if mismatch_note:
+            detail = mismatch_note.split("EMPLOYMENT_MISMATCH:", 1)[1].strip()
+            yield await _emit({
+                "type": "warning",
+                "message": f"{name} may not actually work at {company_name}: {detail}",
+            })
+            person_snippets = [
+                (s.split("EMPLOYMENT_MISMATCH:", 1)[1].strip() if s is mismatch_note else s)
+                for s in person_snippets
+            ]
 
         yield await _emit({
             "type": "step",
@@ -335,7 +351,7 @@ async def generate_emails_for_contacts(
         email = contact.get("email", "")
 
         try:
-            person_snippets = search_person_signals(name, company_name)
+            person_snippets = search_person_signals(name, company_name, contact.get("linkedin_url", ""))
             signals = summarize_public_signals(
                 name,
                 company_name,

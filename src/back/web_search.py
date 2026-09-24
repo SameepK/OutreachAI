@@ -19,7 +19,7 @@ _last_ddg_call = 0.0
 DDG_MIN_INTERVAL = 1.5
 
 
-def research_contact_via_perplexity(name: str, company: str) -> list[str]:
+def research_contact_via_perplexity(name: str, company: str, linkedin_url: str = "") -> list[str]:
     api_key = os.getenv("PERPLEXITY_API_KEY")
     if not api_key:
         raise RuntimeError("PERPLEXITY_API_KEY is not set")
@@ -28,8 +28,17 @@ def research_contact_via_perplexity(name: str, company: str) -> list[str]:
         f"Give a concise, cited summary of {name}'s public professional "
         f"background and activity (talks, posts, projects, career history), "
         f"especially anything relevant to their work at {company}. "
-        f"Cite sources inline."
+        f"Cite sources inline. "
+        f"First, explicitly verify whether {name} currently works at {company}. "
+        f"If your research indicates they do NOT currently work there (different "
+        f"employer, former employee, no evidence of ever working there, etc.), "
+        f"start your response with exactly this line: "
+        f"\"EMPLOYMENT_MISMATCH: <one sentence explaining what you found instead>\" "
+        f"before anything else. If they do currently work at {company}, do not "
+        f"include that line at all."
     )
+    if linkedin_url:
+        prompt += f"\nLinkedIn: {linkedin_url}"
 
     with httpx.Client(timeout=20.0) as http_client:
         response = http_client.post(
@@ -86,10 +95,10 @@ def search_company_signals(company: str) -> list[str]:
     return results[:8]
 
 
-def search_person_signals(name: str, company: str) -> list[str]:
+def search_person_signals(name: str, company: str, linkedin_url: str = "") -> list[str]:
     if os.getenv("PERPLEXITY_API_KEY"):
         try:
-            result = research_contact_via_perplexity(name, company)
+            result = research_contact_via_perplexity(name, company, linkedin_url)
             if result:
                 return result
         except Exception as e:

@@ -1,3 +1,129 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@keyframes scan-sway {
+  0%, 100% { transform: translateX(-4px) rotate(-2deg); }
+  50% { transform: translateX(4px) rotate(2deg); }
+}
+
+@keyframes think-pulse {
+  0%, 100% { transform: scale(1) rotate(0deg); }
+  50% { transform: scale(1.05) rotate(1.5deg); }
+}
+
+@keyframes write-bob {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-3px) rotate(-1.5deg); }
+}
+
+@keyframes sweep-x {
+  0% { transform: translateX(-10px); opacity: 0; }
+  50% { opacity: 1; }
+  100% { transform: translateX(10px); opacity: 0; }
+}
+
+@layer base {
+  body {
+    @apply bg-paper text-ink font-body antialiased;
+  }
+
+  :focus-visible {
+    @apply outline-none ring-2 ring-blue ring-offset-2 ring-offset-paper;
+  }
+
+  input, textarea, select {
+    @apply w-full bg-white text-ink placeholder:text-ink/40
+           border-2 border-ink px-3 py-2.5 text-sm font-body
+           transition-colors duration-150
+           focus:outline-none focus:bg-yellow/10;
+  }
+
+  textarea {
+    @apply resize-none;
+  }
+
+  input[type="file"] {
+    @apply border-0 bg-transparent p-0;
+  }
+
+  input[type="file"]::file-selector-button {
+    @apply bg-ink text-white border-2 border-ink
+           px-4 py-2 text-xs font-bold uppercase tracking-wide cursor-pointer
+           transition-colors duration-150
+           hover:bg-yellow hover:text-ink
+           mr-3;
+  }
+
+  .material-symbols-outlined {
+    font-variation-settings: 'FILL' 0, 'wght' 500, 'GRAD' 0, 'opsz' 20;
+    font-size: inherit;
+    line-height: 1;
+    vertical-align: middle;
+  }
+}
+
+@layer components {
+  /* Card with thick border + offset shadow */
+  .brutal-card {
+    @apply bg-card border-2 border-ink shadow-brutal;
+  }
+
+  /* Primary CTA: solid fill, thick border, uppercase, invert on hover */
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2
+           bg-ink text-white border-2 border-ink
+           font-headline font-bold text-xs uppercase tracking-wider
+           px-6 py-3
+           transition-colors duration-150
+           hover:bg-yellow hover:text-ink
+           active:translate-x-[2px] active:translate-y-[2px];
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2
+           bg-transparent text-ink border-2 border-ink
+           font-headline font-bold text-xs uppercase tracking-wider
+           px-6 py-3
+           transition-colors duration-150
+           hover:bg-ink hover:text-white
+           active:translate-x-[2px] active:translate-y-[2px];
+  }
+
+  .btn-danger {
+    @apply inline-flex items-center justify-center gap-2
+           bg-transparent text-red border-2 border-red
+           font-headline font-bold text-xs uppercase tracking-wider
+           px-4 py-2
+           transition-colors duration-150
+           hover:bg-red hover:text-white;
+  }
+
+  .tag {
+    @apply inline-flex items-center px-2 py-0.5
+           bg-white border border-ink
+           text-[10px] font-bold font-headline uppercase tracking-wider text-ink;
+  }
+
+  .step-number {
+    @apply w-6 h-6 flex items-center justify-center shrink-0
+           bg-ink text-white font-headline font-bold text-xs;
+  }
+
+  /* Small labeled metric tile used in Contacts/Drafts stat strips */
+  .stat-tile {
+    @apply bg-surface-container-lowest p-4 flex flex-col justify-between shadow-brutal-xs relative overflow-hidden;
+  }
+
+  /* Toggle-style pill button (tabs, filter pills, role chips) */
+  .chip {
+    @apply px-3 py-1.5 text-[11px] font-headline font-bold uppercase tracking-wide
+           border-2 border-ink transition-colors;
+  }
+  .chip-active {
+    @apply bg-ink text-white;
+  }
+  .chip-inactive {
+    @apply bg-white text-ink hover:bg-yellow/10;
+  }
+}

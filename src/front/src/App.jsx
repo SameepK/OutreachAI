@@ -6,7 +6,38 @@ import DraftPreview from "./components/DraftPreview";
 import DraftConfirmation from "./components/DraftConfirmation";
 import { API_BASE_URL, parseSSEStream, checkGmailStatus, authHeaders, clearResume } from "./api";
 
-const STAGES = ["input", "progress", "contacts", "generating", "preview", "done"];
+const STEPS = [
+  { key: "input", label: "Target & Resume", path: "target-resume" },
+  { key: "progress", label: "Autonomous Agent", path: "autonomous-agent" },
+  { key: "contacts", label: "Contacts", path: "contacts" },
+  { key: "preview", label: "Drafts", path: "drafts" },
+  { key: "done", label: "Sync & Send", path: "sync-send" },
+];
+
+const STAGE_TO_STEP = {
+  input: 0,
+  progress: 1,
+  generating: 1,
+  contacts: 2,
+  preview: 3,
+  done: 4,
+};
+
+const PHASE_TAGS = [
+  "Pipeline Phase 01 // Intake & Match",
+  "Pipeline Stage 2 // Research & Draft",
+  "Pipeline Stage 3 // Human Review",
+  "Pipeline Stage 4 // Zero Hallucinations",
+  "Pipeline Stage 5 // Dispatch Complete",
+];
+
+const HERO_COPY = [
+  "Drop the target job listing and your latest resume. The agent extracts company signal, maps verified contacts, and prepares grounded outreach.",
+  "Scraping public company signal, querying Hunter.io for verified contacts, and drafting grounded, personalized hooks per contact.",
+  "Review every discovered contact before drafting begins. Edit a name, fix an email, or add a LinkedIn URL for richer research.",
+  "Every line is grounded in real signal — the job posting, your resume, and public research. Nothing is invented.",
+  "Drafts are staged, never sent automatically. Review in Gmail (or copy manually) and send when you're ready.",
+];
 
 export default function App() {
   const [stage, setStage] = useState("input");
@@ -129,84 +160,120 @@ export default function App() {
     setError("");
   };
 
-  const stageIndex = STAGES.indexOf(stage);
+  const currentStep = STAGE_TO_STEP[stage] ?? 0;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-start justify-center py-12 px-4">
-      <div className="w-full max-w-2xl">
-        <div className="text-center mb-8">
-          <div className="flex items-center justify-between mb-4">
-            <div className="w-24" />
-            <h1 className="text-3xl font-bold text-slate-800 tracking-tight">Job Application Agent</h1>
-            <div className="w-24 text-right">
-              {gmailConnected ? (
-                <span className="text-xs text-green-600 font-medium">Gmail ✓</span>
-              ) : (
-                <a
-                  href={`${API_BASE_URL}/auth/gmail/login`}
-                  className="text-xs text-blue-600 hover:text-blue-700 font-medium"
-                >
-                  Connect Gmail
-                </a>
-              )}
+    <div className="min-h-[100dvh] bg-surface flex flex-col">
+      {/* Fixed header */}
+      <header className="fixed top-0 w-full z-50 bg-surface-bright border-b-2 border-ink">
+        <div className="h-16 w-full px-4 sm:px-6 lg:px-12 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3 shrink-0">
+            <div className="w-7 h-7 bg-red border-2 border-ink flex items-center justify-center">
+              <span className="material-symbols-outlined text-white text-[16px]" aria-hidden="true">flare</span>
             </div>
+            <span className="font-headline font-bold text-lg tracking-tight uppercase text-ink">OutreachAI</span>
+            <span className="hidden sm:inline-block px-1.5 py-0.5 text-[10px] font-headline font-bold uppercase tracking-wider bg-yellow text-ink border border-ink">
+              v2.4
+            </span>
           </div>
-          <p className="text-slate-500 text-sm">JD + resume → contacts → personalized drafts</p>
-          <div className="flex items-center justify-center gap-1 mt-6 flex-wrap">
-            {["Input", "Agent", "Contacts", "Drafts", "Done"].map((label, i) => (
-              <div key={label} className="flex items-center gap-1">
-                <div
-                  className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold ${
-                    stageIndex > i ? "bg-green-500 text-white" : stageIndex === i ? "bg-blue-600 text-white" : "bg-slate-200 text-slate-500"
+
+          <nav className="hidden xl:flex items-center gap-1 overflow-x-auto">
+            {STEPS.map((step, i) => (
+              <div key={step.key} className="flex items-center">
+                <span
+                  className={`px-3 py-1.5 text-xs font-headline uppercase tracking-wide transition-all whitespace-nowrap ${
+                    currentStep === i
+                      ? "bg-ink text-white font-bold border-2 border-ink"
+                      : currentStep > i
+                      ? "text-ink/70 font-medium border border-transparent"
+                      : "text-ink/40 font-medium border border-transparent"
                   }`}
                 >
-                  {stageIndex > i ? "✓" : i + 1}
-                </div>
-                <span className="text-xs text-slate-500 hidden sm:inline">{label}</span>
-                {i < 4 && <div className={`w-4 h-0.5 ${stageIndex > i ? "bg-green-400" : "bg-slate-200"}`} />}
+                  {i + 1}. {step.label}
+                </span>
+                {i < STEPS.length - 1 && <span className="text-ink/20 text-xs">/</span>}
               </div>
             ))}
+          </nav>
+
+          <div className="flex items-center gap-3 shrink-0">
+            {gmailConnected ? (
+              <span className="tag bg-blue/10 border-blue text-blue">Gmail Connected</span>
+            ) : (
+              <a
+                href={`${API_BASE_URL}/auth/gmail/login`}
+                className="tag hover:bg-ink hover:text-white transition-colors"
+              >
+                Connect Gmail
+              </a>
+            )}
           </div>
         </div>
+      </header>
 
-        {error && stage === "input" && (
-          <div className="mb-4 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">{error}</div>
-        )}
+      {/* Main content */}
+      <main className="flex-1 w-full pt-16 bg-surface">
+        <div className="w-full max-w-5xl mx-auto px-4 sm:px-6 lg:px-12 py-8 md:py-12">
+          <div className="max-w-2xl space-y-3 mb-8">
+            <div className="inline-flex items-center gap-2 px-2.5 py-1 bg-ink text-white text-xs font-headline uppercase tracking-widest">
+              <span className="w-2 h-2 rounded-full bg-yellow animate-pulse" />
+              {PHASE_TAGS[currentStep]}
+            </div>
+            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-headline font-bold uppercase tracking-tight text-ink leading-none">
+              {STEPS[currentStep].label}
+            </h1>
+            <p className="text-ink/60 font-body text-sm sm:text-base leading-relaxed max-w-xl">
+              {HERO_COPY[currentStep]}
+            </p>
+          </div>
 
-        {stage === "input" && <JobInput onStart={runAgent} />}
+          {error && stage === "input" && (
+            <div className="mb-6 bg-red/10 border-2 border-red text-red text-sm font-medium px-4 py-3">
+              {error}
+            </div>
+          )}
 
-        {(stage === "progress" || stage === "generating") && (
-          <AgentProgress messages={progressMessages} warnings={warnings} />
-        )}
+          {stage === "input" && <JobInput onStart={runAgent} />}
 
-        {stage === "contacts" && (
-          <ContactReview
-            contacts={contacts}
-            jobDetails={jobDetails}
-            onConfirm={confirmContacts}
-            onBack={reset}
-          />
-        )}
+          {(stage === "progress" || stage === "generating") && (
+            <AgentProgress messages={progressMessages} warnings={warnings} />
+          )}
 
-        {stage === "preview" && (
-          <DraftPreview
-            drafts={drafts}
-            failed={failed}
-            applicationId={applicationId}
-            gmailConnected={gmailConnected}
-            onComplete={(result) => {
-              setConfirmation(result);
-              setStage("done");
-              clearResume().catch(() => {});
-            }}
-            onBack={() => setStage("contacts")}
-          />
-        )}
+          {stage === "contacts" && (
+            <ContactReview
+              contacts={contacts}
+              jobDetails={jobDetails}
+              onConfirm={confirmContacts}
+              onBack={reset}
+            />
+          )}
 
-        {stage === "done" && confirmation && (
-          <DraftConfirmation result={confirmation} onReset={reset} />
-        )}
-      </div>
+          {stage === "preview" && (
+            <DraftPreview
+              drafts={drafts}
+              failed={failed}
+              applicationId={applicationId}
+              gmailConnected={gmailConnected}
+              onComplete={(result) => {
+                setConfirmation(result);
+                setStage("done");
+                clearResume().catch(() => {});
+              }}
+              onBack={() => setStage("contacts")}
+            />
+          )}
+
+          {stage === "done" && confirmation && (
+            <DraftConfirmation result={confirmation} onReset={reset} />
+          )}
+        </div>
+      </main>
+
+      <footer className="w-full bg-surface-container-low border-t-2 border-ink py-6">
+        <div className="w-full px-4 sm:px-6 lg:px-12 flex items-center justify-center text-xs font-headline uppercase tracking-wider text-ink/60">
+          <span className="text-ink font-bold">© 2025 OutreachAI</span>
+        </div>
+      </footer>
     </div>
   );
 }

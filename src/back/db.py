@@ -65,6 +65,7 @@ def _init_db() -> None:
                 name TEXT NOT NULL,
                 role TEXT,
                 email TEXT,
+                linkedin_url TEXT,
                 confidence INTEGER DEFAULT 0,
                 reason TEXT,
                 draft_subject TEXT,
@@ -87,6 +88,11 @@ def _init_db() -> None:
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         """)
+        existing_columns = {
+            row["name"] for row in conn.execute("PRAGMA table_info(application_contacts)")
+        }
+        if "linkedin_url" not in existing_columns:
+            conn.execute("ALTER TABLE application_contacts ADD COLUMN linkedin_url TEXT")
         conn.commit()
 
 
@@ -214,14 +220,15 @@ def save_application_contacts(application_id: str, contacts: list[dict]) -> list
             cursor = conn.execute(
                 """
                 INSERT INTO application_contacts
-                (application_id, name, role, email, confidence, reason, generation_status)
-                VALUES (?, ?, ?, ?, ?, ?, 'pending')
+                (application_id, name, role, email, linkedin_url, confidence, reason, generation_status)
+                VALUES (?, ?, ?, ?, ?, ?, ?, 'pending')
                 """,
                 (
                     application_id,
                     c.get("name", ""),
                     c.get("role", ""),
                     c.get("email", ""),
+                    c.get("linkedin_url", ""),
                     c.get("confidence", 0),
                     c.get("reason", ""),
                 ),

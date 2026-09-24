@@ -59,6 +59,7 @@ class ContactModel(BaseModel):
     name: str
     role: str = ""
     email: str = ""
+    linkedin_url: str = ""
     confidence: int = 0
     email_status: str = "ok"
     reason: str = ""
