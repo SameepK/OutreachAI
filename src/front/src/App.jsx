@@ -171,13 +171,21 @@ export default function App() {
       <header className="fixed top-0 w-full z-50 bg-surface-bright border-b-2 border-ink">
         <div className="h-16 w-full px-4 sm:px-6 lg:px-12 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 shrink-0">
-            <div className="w-7 h-7 bg-red border-2 border-ink flex items-center justify-center">
-              <span className="material-symbols-outlined text-white text-[16px]" aria-hidden="true">flare</span>
+            <div className="w-7 h-7 bg-red border-2 border-ink flex items-center justify-center shrink-0">
+              <svg
+                viewBox="0 0 24 24"
+                className="w-4 h-4"
+                fill="none"
+                stroke="white"
+                strokeWidth={2.75}
+                strokeLinecap="square"
+                strokeLinejoin="miter"
+                aria-hidden="true"
+              >
+                <path d="M5 19L19 5M19 5H10M19 5V14" />
+              </svg>
             </div>
-            <span className="font-headline font-bold text-lg tracking-tight uppercase text-ink">OutreachAI</span>
-            <span className="hidden sm:inline-block px-1.5 py-0.5 text-[10px] font-headline font-bold uppercase tracking-wider bg-yellow text-ink border border-ink">
-              v2.4
-            </span>
+            <span className="font-headline font-bold text-lg tracking-tight text-ink">OutreachAI</span>
           </div>
 
           <nav className="hidden xl:flex items-center gap-1 overflow-x-auto">
@@ -275,7 +283,7 @@ export default function App() {
 
       <footer className="w-full bg-surface-container-low border-t-2 border-ink py-6">
         <div className="w-full px-4 sm:px-6 lg:px-12 flex items-center justify-center text-xs font-headline uppercase tracking-wider text-ink/60">
-          <span className="text-ink font-bold">© 2025 OutreachAI</span>
+          <span className="text-ink font-bold">© 2026 OutreachAI</span>
         </div>
       </footer>
     </div>

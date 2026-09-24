@@ -18,10 +18,9 @@ export default function JobInput({ onStart }) {
   useEffect(() => {
     fetchProfile().then((p) => {
       if (!p) return;
-      if (p.resume_text) {
-        setResumeText(p.resume_text);
-        setResumeFileName(p.resume_filename || "Saved resume");
-      }
+      // Resume is intentionally NOT auto-filled here — always require a
+      // fresh attach so a stale/placeholder resume from a prior session
+      // can never silently get reused.
       if (p.linkedin) setLinkedin(p.linkedin);
       if (p.github) setGithub(p.github);
       if (p.sign_off) setSignOff(p.sign_off);
@@ -121,7 +120,7 @@ export default function JobInput({ onStart }) {
             {tab === "url" ? (
               <div className="space-y-2">
                 <label className="block text-xs font-headline font-bold uppercase tracking-wider text-ink">
-                  Job Board URL / Posting Link
+                  Job Board URL / Posting Link <span className="text-red">*</span>
                 </label>
                 <div className="relative">
                   <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-ink/40 text-[18px]" aria-hidden="true">
@@ -140,7 +139,7 @@ export default function JobInput({ onStart }) {
             ) : (
               <div className="space-y-2">
                 <label className="block text-xs font-headline font-bold uppercase tracking-wider text-ink">
-                  Job Description
+                  Job Description <span className="text-red">*</span>
                 </label>
                 <textarea
                   rows={9}
