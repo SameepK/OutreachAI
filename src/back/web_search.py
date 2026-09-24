@@ -24,21 +24,42 @@ def research_contact_via_perplexity(name: str, company: str, linkedin_url: str =
     if not api_key:
         raise RuntimeError("PERPLEXITY_API_KEY is not set")
 
-    prompt = (
-        f"Give a concise, cited summary of {name}'s public professional "
-        f"background and activity (talks, posts, projects, career history), "
-        f"especially anything relevant to their work at {company}. "
-        f"Cite sources inline. "
-        f"First, explicitly verify whether {name} currently works at {company}. "
-        f"If your research indicates they do NOT currently work there (different "
-        f"employer, former employee, no evidence of ever working there, etc.), "
-        f"start your response with exactly this line: "
-        f"\"EMPLOYMENT_MISMATCH: <one sentence explaining what you found instead>\" "
-        f"before anything else. If they do currently work at {company}, do not "
-        f"include that line at all."
-    )
     if linkedin_url:
-        prompt += f"\nLinkedIn: {linkedin_url}"
+        prompt = (
+            f"This exact LinkedIn profile is the authoritative source of truth for "
+            f"who this person is: {linkedin_url}\n"
+            f"The name on record is {name}, allegedly working at {company}. "
+            f"Anchor your research on THIS SPECIFIC LinkedIn profile first: what it "
+            f"says about their current employer, title, and background. Do NOT "
+            f"substitute or blend in information about a different person who "
+            f"happens to share the same name. If multiple public people named "
+            f"{name} exist, only use the one that matches this LinkedIn URL. "
+            f"Give a concise, cited summary of this specific person's public "
+            f"professional background and activity (talks, posts, projects, career "
+            f"history), especially anything relevant to their work at {company}. "
+            f"Cite sources inline. "
+            f"First, explicitly verify whether the person at THIS LinkedIn URL "
+            f"currently works at {company}. If you cannot confirm that (different "
+            f"employer, unable to verify the profile, name collision with someone "
+            f"else, no reliable match, etc.), start your response with exactly this "
+            f"line: \"EMPLOYMENT_MISMATCH: <one sentence explaining what you found "
+            f"instead>\" before anything else. If confirmed, do not include that "
+            f"line at all."
+        )
+    else:
+        prompt = (
+            f"Give a concise, cited summary of {name}'s public professional "
+            f"background and activity (talks, posts, projects, career history), "
+            f"especially anything relevant to their work at {company}. "
+            f"Cite sources inline. "
+            f"First, explicitly verify whether {name} currently works at {company}. "
+            f"If your research indicates they do NOT currently work there (different "
+            f"employer, former employee, no evidence of ever working there, etc.), "
+            f"start your response with exactly this line: "
+            f"\"EMPLOYMENT_MISMATCH: <one sentence explaining what you found instead>\" "
+            f"before anything else. If they do currently work at {company}, do not "
+            f"include that line at all."
+        )
 
     with httpx.Client(timeout=20.0) as http_client:
         response = http_client.post(
