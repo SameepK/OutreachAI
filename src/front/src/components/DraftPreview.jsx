@@ -133,6 +133,11 @@ export default function DraftPreview({
                         <span className="font-body text-xs text-ink/50 truncate">{d.role}</span>
                       </div>
                     </div>
+                    {!d.email && (
+                      <span className="px-2 py-0.5 text-[10px] font-headline font-bold uppercase tracking-wider bg-yellow text-ink shadow-sm shrink-0">
+                        No email
+                      </span>
+                    )}
                     {isActive && (
                       <span className="px-2 py-0.5 text-[10px] font-headline font-bold uppercase tracking-wider bg-surface-container text-ink shadow-sm flex items-center gap-1 shrink-0">
                         <span className="w-1.5 h-1.5 rounded-full bg-red" />
@@ -168,11 +173,24 @@ export default function DraftPreview({
               <div className="flex flex-col gap-3 p-4 bg-surface-container-lowest shadow-brutal-xs">
                 <div className="flex items-center gap-2">
                   <span className="font-headline text-xs uppercase tracking-wider font-bold text-ink/50 w-14">To:</span>
-                  <div className="inline-flex items-center gap-2 px-2.5 py-1 bg-surface-container font-headline text-xs text-ink font-bold">
-                    <span>{active.name}</span>
-                    <span className="text-ink/50 font-normal font-body">&lt;{active.email}&gt;</span>
-                  </div>
+                  <span className="inline-flex items-center px-2.5 py-1 bg-surface-container font-headline text-xs text-ink font-bold shrink-0">
+                    {active.name}
+                  </span>
+                  <input
+                    value={active.email}
+                    onChange={(e) => updateDraft(activeIndex, "email", e.target.value)}
+                    placeholder="Add their email address"
+                    className={`font-mono text-xs ${
+                      !active.email ? "!border-yellow !bg-yellow/10" : ""
+                    }`}
+                  />
                 </div>
+                {!active.email && (
+                  <div className="bg-yellow/20 border-2 border-ink text-ink text-xs font-medium px-3 py-2 flex items-start gap-2">
+                    <span className="material-symbols-outlined text-[16px] shrink-0" aria-hidden="true">warning</span>
+                    Hunter.io couldn't find an email for {active.name} — add one manually before creating Gmail drafts.
+                  </div>
+                )}
                 <div className="flex items-center gap-2">
                   <span className="font-headline text-xs uppercase tracking-wider font-bold text-ink/50 w-14">Subject:</span>
                   <input

@@ -59,6 +59,17 @@ export async function clearResume() {
   });
 }
 
+export async function findMoreContacts(applicationId, department) {
+  const res = await fetch(`${API_BASE_URL}/agent/find-more-contacts`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ application_id: applicationId, department }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.detail || "Could not find more contacts");
+  return data.contacts || [];
+}
+
 export async function checkGmailStatus() {
   const res = await fetch(`${API_BASE_URL}/auth/gmail/status`);
   if (!res.ok) return { connected: false };

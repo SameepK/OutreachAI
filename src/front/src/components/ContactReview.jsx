@@ -1,4 +1,16 @@
 import { useState } from "react";
+import { findMoreContacts } from "../api";
+
+const DEPARTMENTS = [
+  { value: "hr", label: "HR / Recruiting" },
+  { value: "it", label: "Engineering" },
+  { value: "sales", label: "Sales" },
+  { value: "marketing", label: "Marketing" },
+  { value: "management", label: "Product / Management" },
+  { value: "executive", label: "Executive" },
+  { value: "finance", label: "Finance" },
+  { value: "operations", label: "Operations" },
+];
 
 function emptyContact() {
   return { name: "", role: "", email: "", linkedin_url: "", confidence: 0, email_status: "ok", reason: "", included: true };
@@ -10,11 +22,36 @@ function initials(name) {
   return (parts[0][0] + (parts[1]?.[0] || "")).toUpperCase();
 }
 
-export default function ContactReview({ contacts: initial, jobDetails, onConfirm, onBack }) {
+export default function ContactReview({ contacts: initial, jobDetails, applicationId, onConfirm, onBack }) {
   const [contacts, setContacts] = useState(
     initial.length ? initial.map((c) => ({ ...c, included: true })) : [emptyContact()]
   );
   const [error, setError] = useState("");
+  const [department, setDepartment] = useState("it");
+  const [findingMore, setFindingMore] = useState(false);
+
+  const handleFindMore = async () => {
+    setFindingMore(true);
+    setError("");
+    try {
+      const found = await findMoreContacts(applicationId, department);
+      const existingKeys = new Set(
+        contacts.map((c) => (c.email || c.name || "").toLowerCase())
+      );
+      const newOnes = found
+        .filter((c) => !existingKeys.has((c.email || c.name || "").toLowerCase()))
+        .map((c) => ({ ...emptyContact(), ...c, included: true }));
+      if (!newOnes.length) {
+        setError("Hunter.io returned contacts, but they're already in your list.");
+      } else {
+        setContacts((prev) => [...prev, ...newOnes]);
+      }
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setFindingMore(false);
+    }
+  };
 
   const update = (index, field, value) => {
     setContacts((prev) => prev.map((c, i) => (i === index ? { ...c, [field]: value } : c)));
@@ -25,7 +62,6 @@ export default function ContactReview({ contacts: initial, jobDetails, onConfirm
   const setAllIncluded = (included) => setContacts((prev) => prev.map((c) => ({ ...c, included })));
 
   const selected = contacts.filter((c) => c.included && c.name.trim());
-  const warningCount = contacts.filter((c) => c.email_status === "warning").length;
   const avgConfidence = contacts.length
     ? Math.round(contacts.reduce((sum, c) => sum + (c.confidence || 0), 0) / contacts.length)
     : 0;
@@ -60,8 +96,40 @@ export default function ContactReview({ contacts: initial, jobDetails, onConfirm
         </div>
       </div>
 
+      {/* Find more contacts in a different department */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 p-4 bg-surface-container-low border-2 border-ink/10">
+        <span className="text-xs font-headline uppercase tracking-wider text-ink/60 shrink-0">
+          Not the right people? Search a different department:
+        </span>
+        <div className="relative shrink-0">
+          <select
+            value={department}
+            onChange={(e) => setDepartment(e.target.value)}
+            className="appearance-none pr-9 font-headline text-xs font-bold uppercase tracking-wide cursor-pointer w-full sm:w-auto"
+          >
+            {DEPARTMENTS.map((d) => (
+              <option key={d.value} value={d.value}>{d.label}</option>
+            ))}
+          </select>
+          <span
+            className="material-symbols-outlined text-[18px] text-ink absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none"
+            aria-hidden="true"
+          >
+            expand_more
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={handleFindMore}
+          disabled={findingMore || !applicationId}
+          className="chip chip-inactive disabled:opacity-50 whitespace-nowrap"
+        >
+          {findingMore ? "Searching Hunter.io..." : "Find more contacts"}
+        </button>
+      </div>
+
       {/* Metric strip — real numbers from the discovered contacts */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="stat-tile">
           <div className="flex items-center justify-between text-xs font-headline uppercase tracking-wider text-ink/60">
             <span>Total Leads</span>
@@ -91,16 +159,6 @@ export default function ContactReview({ contacts: initial, jobDetails, onConfirm
             <span className="text-3xl lg:text-4xl font-headline font-bold text-red">{String(selected.length).padStart(2, "0")}</span>
           </div>
           <div className="absolute bottom-0 left-0 h-1 bg-red w-full" />
-        </div>
-        <div className="stat-tile">
-          <div className="flex items-center justify-between text-xs font-headline uppercase tracking-wider text-ink/60">
-            <span>Needs Verify</span>
-            <span className="material-symbols-outlined text-[18px] text-ink" aria-hidden="true">person_search</span>
-          </div>
-          <div className="mt-4 flex items-baseline gap-2">
-            <span className="text-3xl lg:text-4xl font-headline font-bold text-ink">{String(warningCount).padStart(2, "0")}</span>
-          </div>
-          <div className="absolute bottom-0 left-0 h-1 bg-yellow w-full" />
         </div>
       </div>
 
@@ -143,12 +201,17 @@ export default function ContactReview({ contacts: initial, jobDetails, onConfirm
                   onChange={(e) => update(i, "email", e.target.value)}
                   className={c.email_status === "warning" ? "!border-yellow !bg-yellow/10 sm:col-span-2" : "sm:col-span-2"}
                 />
-                <input
-                  placeholder="LinkedIn URL (optional)"
-                  value={c.linkedin_url || ""}
-                  onChange={(e) => update(i, "linkedin_url", e.target.value)}
-                  className="sm:col-span-2"
-                />
+                <div className="sm:col-span-2 space-y-1">
+                  <input
+                    placeholder="LinkedIn URL (optional)"
+                    value={c.linkedin_url || ""}
+                    onChange={(e) => update(i, "linkedin_url", e.target.value)}
+                  />
+                  <p className="text-[11px] text-ink/50 font-medium normal-case">
+                    Adding a LinkedIn URL helps verify this person actually works
+                    here, reducing the chance of a mismatched or wrong-person draft.
+                  </p>
+                </div>
               </div>
               <div className="flex items-center justify-between pt-1 text-[11px] font-headline uppercase">
                 <div className="flex items-center gap-2">

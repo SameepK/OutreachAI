@@ -13,6 +13,7 @@ from db import (
 )
 from resume_parser import extract_text_from_file
 from agent import run_agent_phase_one, confirm_and_generate, generate_emails_for_contacts
+from contact_finder import find_contacts_by_department
 from gmail_auth import is_gmail_connected, get_auth_url, handle_oauth_callback
 from gmail_drafts import create_drafts
 
@@ -73,6 +74,11 @@ class ConfirmContactsRequest(BaseModel):
 class GenerateEmailsRequest(BaseModel):
     application_id: str
     contact_ids: list[int] | None = None
+
+
+class FindMoreContactsRequest(BaseModel):
+    application_id: str
+    department: str
 
 
 class DraftItem(BaseModel):
@@ -172,6 +178,34 @@ async def agent_generate_emails(payload: GenerateEmailsRequest):
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/agent/find-more-contacts", dependencies=[Depends(require_api_key)])
+def find_more_contacts_route(payload: FindMoreContactsRequest):
+    app_data = get_application(payload.application_id)
+    if not app_data:
+        raise HTTPException(status_code=404, detail="Application not found")
+
+    job_details = (app_data.get("agent_state") or {}).get("job_details", {})
+    company_domain = job_details.get("company_domain", "")
+    if not company_domain:
+        raise HTTPException(status_code=400, detail="No company domain on this application")
+
+    try:
+        contacts = find_contacts_by_department(company_domain, payload.department, limit=5)
+    except RuntimeError as e:
+        raise HTTPException(status_code=502, detail=str(e))
+
+    if not contacts:
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                f"Can't find contacts on Hunter.io for '{payload.department}' at this company. "
+                "You can add a contact manually, or look them up on Apollo.io, "
+                "LinkedIn Sales Navigator, or a similar site."
+            ),
+        )
+    return {"contacts": contacts}
 
 
 @app.get("/agent/applications/{application_id}")

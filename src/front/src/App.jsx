@@ -115,6 +115,7 @@ export default function App() {
   const confirmContacts = async (confirmedContacts) => {
     setStage("generating");
     setProgressMessages([]);
+    setWarnings([]);
     setError("");
 
     try {
@@ -132,6 +133,8 @@ export default function App() {
       await parseSSEStream(res, (event) => {
         if (event.type === "step") {
           setProgressMessages((prev) => [...prev, event.message]);
+        } else if (event.type === "warning") {
+          setWarnings((prev) => [...prev, event.message]);
         } else if (event.type === "error") {
           setError(event.message);
         } else if (event.type === "drafts_ready") {
@@ -243,6 +246,7 @@ export default function App() {
             <ContactReview
               contacts={contacts}
               jobDetails={jobDetails}
+              applicationId={applicationId}
               onConfirm={confirmContacts}
               onBack={reset}
             />
