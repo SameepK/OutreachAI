@@ -474,6 +474,10 @@ it checks rather than re-deriving it, see the section named):
   direct referral ask anywhere (Hard constraints).
 """
 
+# Shared with generator.py's hook_source_excerpt provenance check, which
+# must validate against the same truncated text the model actually saw.
+SIGNALS_CHAR_CAP = 1200
+
 
 def build_user_prompt(
     name: str,
@@ -512,7 +516,6 @@ def build_user_prompt(
     # raises the TPM limit or a smarter token-aware truncation is needed,
     # revisit these caps.
     _RESUME_CHAR_CAP = 3000
-    _SIGNALS_CHAR_CAP = 1200
     resume_text = resume_text.strip()
     if len(resume_text) > _RESUME_CHAR_CAP:
         resume_text = resume_text[:_RESUME_CHAR_CAP].rstrip() + "\n[resume truncated for length]"
@@ -521,8 +524,8 @@ def build_user_prompt(
         if public_signals_about_contact and public_signals_about_contact.strip()
         else "[none provided]"
     )
-    if len(signals_value) > _SIGNALS_CHAR_CAP:
-        signals_value = signals_value[:_SIGNALS_CHAR_CAP].rstrip() + " [signal truncated for length]"
+    if len(signals_value) > SIGNALS_CHAR_CAP:
+        signals_value = signals_value[:SIGNALS_CHAR_CAP].rstrip() + " [signal truncated for length]"
     # Cap history blocks to the most recent entries so they don't grow
     # unbounded across a long batch and crowd out the per-contact content
     # (SYSTEM_PROMPT alone is already close to Groq's 8K TPM limit).
