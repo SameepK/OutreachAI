@@ -512,7 +512,7 @@ def build_user_prompt(
     # raises the TPM limit or a smarter token-aware truncation is needed,
     # revisit these caps.
     _RESUME_CHAR_CAP = 3000
-    _SIGNALS_CHAR_CAP = 1500
+    _SIGNALS_CHAR_CAP = 1200
     resume_text = resume_text.strip()
     if len(resume_text) > _RESUME_CHAR_CAP:
         resume_text = resume_text[:_RESUME_CHAR_CAP].rstrip() + "\n[resume truncated for length]"
