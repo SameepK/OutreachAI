@@ -7,6 +7,7 @@ logger = logging.getLogger(__name__)
 HUNTER_BASE = "https://api.hunter.io/v2"
 CONFIDENCE_OK = 85
 CONFIDENCE_WARN = 50
+PLAN_LIMIT_FALLBACK = 10
 
 
 def _api_key() -> str:
@@ -14,6 +15,21 @@ def _api_key() -> str:
     if not key:
         raise RuntimeError("HUNTER_API_KEY is not set")
     return key
+
+
+def _hunter_error_detail(response: httpx.Response) -> str:
+    try:
+        errors = response.json().get("errors") or []
+        if errors:
+            return errors[0].get("details") or errors[0].get("code") or str(errors[0])
+    except Exception:
+        pass
+    return response.text or f"HTTP {response.status_code}"
+
+
+def _is_plan_limit_error(detail: str) -> bool:
+    detail_lower = detail.lower()
+    return "plan" in detail_lower or "limited to" in detail_lower
 
 
 def apply_email_confidence(email: str, confidence: int) -> tuple[str, str]:
@@ -27,25 +43,49 @@ def apply_email_confidence(email: str, confidence: int) -> tuple[str, str]:
     return "", "blank"
 
 
-def domain_search(domain: str, limit: int = 20) -> list[dict]:
+def _domain_search_request(domain: str, limit: int, department: str | None) -> dict:
+    params = {
+        "domain": domain,
+        "api_key": _api_key(),
+        "limit": limit,
+    }
+    if department:
+        params["department"] = department
+    with httpx.Client(timeout=30.0) as client:
+        response = client.get(f"{HUNTER_BASE}/domain-search", params=params)
+        response.raise_for_status()
+        return response.json().get("data", {})
+
+
+def domain_search(domain: str, limit: int = 10, department: str | None = None) -> list[dict]:
     if not domain:
         return []
 
     try:
-        with httpx.Client(timeout=30.0) as client:
-            response = client.get(
-                f"{HUNTER_BASE}/domain-search",
-                params={
-                    "domain": domain,
-                    "api_key": _api_key(),
-                    "limit": limit,
-                },
+        data = _domain_search_request(domain, limit, department)
+    except httpx.HTTPStatusError as e:
+        detail = _hunter_error_detail(e.response)
+        if (
+            e.response.status_code == 400
+            and limit > PLAN_LIMIT_FALLBACK
+            and _is_plan_limit_error(detail)
+        ):
+            logger.warning(
+                "Hunter domain search for %s hit a plan limit (%s); retrying with limit=%d",
+                domain, detail, PLAN_LIMIT_FALLBACK,
             )
-            response.raise_for_status()
-            data = response.json().get("data", {})
+            try:
+                data = _domain_search_request(domain, PLAN_LIMIT_FALLBACK, department)
+            except httpx.HTTPStatusError as e2:
+                detail2 = _hunter_error_detail(e2.response)
+                logger.warning("Hunter domain search retry failed for %s: %s", domain, detail2)
+                raise RuntimeError(f"Hunter API error: {detail2}") from e2
+        else:
+            logger.warning("Hunter domain search failed for %s: %s", domain, detail)
+            raise RuntimeError(f"Hunter API error: {detail}") from e
     except Exception as e:
         logger.warning("Hunter domain search failed for %s: %s", domain, e)
-        return []
+        raise RuntimeError(f"Hunter API error: {e}") from e
 
     contacts = []
     for person in data.get("emails", []):

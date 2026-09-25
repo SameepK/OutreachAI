@@ -8,6 +8,7 @@ from jd_scraper import fetch_jd_text
 from jd_parser import parse_jd
 from company_scraper import scrape_company_pages, scrape_github_org
 from contact_finder import find_contacts
+from hunter_client import email_finder
 from web_search import (
     search_company_signals,
     search_person_signals,
@@ -28,19 +29,59 @@ logger = logging.getLogger(__name__)
 _playwright_warning_logged = False
 
 
-def check_playwright_installed() -> bool:
-    try:
-        from playwright.sync_api import sync_playwright
+PERSONAL_EMAIL_DOMAINS = {
+    "gmail.com", "yahoo.com", "outlook.com", "hotmail.com",
+    "icloud.com", "aol.com", "protonmail.com", "live.com", "me.com",
+}
 
-        with sync_playwright() as p:
+
+def _is_unverified_contact(contact: dict) -> bool:
+    """True when a contact has no Hunter confidence score AND a personal
+    email domain — a strong, deterministic signal this was manually typed
+    in rather than sourced from the company's real domain, independent of
+    whatever Perplexity's employment-verification research concludes."""
+    confidence = contact.get("confidence", 0) or 0
+    email = (contact.get("email") or "").strip().lower()
+    domain = email.split("@")[-1] if "@" in email else ""
+    return confidence == 0 and domain in PERSONAL_EMAIL_DOMAINS
+
+
+def _try_find_email(company_domain: str, name: str) -> dict:
+    """Best-effort Hunter.io email-finder lookup by name when a contact has
+    no email on file. Never raises — returns a blank result on no match."""
+    name_parts = (name or "").split()
+    if not company_domain or not name_parts:
+        return {"email": "", "confidence": 0, "email_status": "blank"}
+    first = name_parts[0]
+    last = name_parts[-1] if len(name_parts) > 1 else ""
+    return email_finder(company_domain, first, last)
+
+
+def _tag_company_signals(company_pages: dict, company_ddg: list) -> dict[str, str]:
+    """Tag company_pages (static/about-us content) and company_ddg (fresh
+    web search results) distinctly so the downstream prompt can tell generic
+    company info apart from specific, recent signals."""
+    generic = "\n".join(v for v in company_pages.values() if v)
+    specific = "\n".join(company_ddg[:5])
+    return {
+        "GENERIC_COMPANY_INFO": generic,
+        "SPECIFIC_RECENT_SIGNAL": specific,
+    }
+
+
+async def check_playwright_installed() -> bool:
+    try:
+        from playwright.async_api import async_playwright
+
+        async with async_playwright() as p:
             return p.chromium is not None
     except Exception:
         return False
 
 
-def warn_playwright_if_missing() -> str | None:
+async def warn_playwright_if_missing() -> str | None:
     global _playwright_warning_logged
-    if check_playwright_installed():
+    if await check_playwright_installed():
         return None
     msg = (
         "Playwright Chromium is not installed. JS-heavy job pages may fail. "
@@ -67,7 +108,7 @@ async def run_agent_phase_one(
 ) -> AsyncGenerator[str, None]:
     application_id = str(uuid.uuid4())
 
-    pw_warning = warn_playwright_if_missing()
+    pw_warning = await warn_playwright_if_missing()
     if pw_warning:
         yield await _emit({"type": "warning", "message": pw_warning})
 
@@ -119,10 +160,43 @@ async def run_agent_phase_one(
     contacts: list[dict] = []
     if company_domain:
         try:
-            contacts = await asyncio.to_thread(find_contacts, company_domain, 5)
+            contacts = await asyncio.to_thread(
+                find_contacts, company_domain, job_details.get("role_title", ""), 5
+            )
         except Exception as e:
             logger.warning("Contact finding failed: %s", e)
             yield await _emit({"type": "warning", "message": f"Contact search failed: {e}"})
+
+    if not contacts and company_name:
+        guessed_domain = company_name.lower().replace(" ", "").replace(",", "") + ".com"
+        if guessed_domain != company_domain:
+            logger.info(
+                "No contacts for extracted domain %r, trying guessed domain %r",
+                company_domain, guessed_domain,
+            )
+            yield await _emit({
+                "type": "warning",
+                "message": (
+                    f"Could not find contacts for domain "
+                    f"'{company_domain or '(none extracted)'}'. "
+                    f"Trying guessed domain '{guessed_domain}'..."
+                ),
+            })
+            try:
+                contacts = await asyncio.to_thread(
+                    find_contacts, guessed_domain, job_details.get("role_title", ""), 5
+                )
+            except Exception as e:
+                logger.warning("Contact finding failed for guessed domain %s: %s", guessed_domain, e)
+
+    if not contacts:
+        yield await _emit({
+            "type": "warning",
+            "message": (
+                "Could not determine a company domain or Hunter found no contacts. "
+                "Please add contacts manually in the next step."
+            ),
+        })
 
     create_application(
         application_id=application_id,
@@ -172,12 +246,39 @@ async def confirm_and_generate(
 
     drafts: list[dict] = []
     failed: list[dict] = []
+    used_subjects: list[str] = []
 
     for i, contact in enumerate(saved_contacts):
         contact_id = contact.get("id")
         name = contact.get("name", "")
         role = contact.get("role", "")
         email = contact.get("email", "")
+
+        if not email:
+            found = await asyncio.to_thread(
+                _try_find_email, job_details.get("company_domain", ""), name
+            )
+            if found.get("email"):
+                email = found["email"]
+                contact["email"] = email
+                contact["confidence"] = found.get("confidence", 0)
+                contact["email_status"] = found.get("email_status", "ok")
+                yield await _emit({
+                    "type": "step",
+                    "step": 5,
+                    "message": f"Found an email for {name} via Hunter.io.",
+                })
+
+        if _is_unverified_contact(contact):
+            yield await _emit({
+                "type": "warning",
+                "message": (
+                    f"{name}'s email looks manually entered and unverified "
+                    f"(personal address, no confidence score from Hunter) — "
+                    f"double-check they actually work at {company_name} "
+                    f"before sending."
+                ),
+            })
 
         yield await _emit({
             "type": "step",
@@ -186,7 +287,24 @@ async def confirm_and_generate(
             "progress": f"{i + 1}/{len(saved_contacts)}",
         })
 
-        person_snippets = await asyncio.to_thread(search_person_signals, name, company_name)
+        person_snippets = await asyncio.to_thread(
+            search_person_signals, name, company_name, contact.get("linkedin_url", "")
+        )
+
+        mismatch_note = next(
+            (s for s in person_snippets if s.startswith("EMPLOYMENT_MISMATCH:")), None
+        )
+        if mismatch_note:
+            full_detail = mismatch_note.split("EMPLOYMENT_MISMATCH:", 1)[1].strip()
+            one_line_detail = full_detail.split("\n", 1)[0].strip()
+            yield await _emit({
+                "type": "warning",
+                "message": f"{name} may not actually work at {company_name}: {one_line_detail}",
+            })
+            person_snippets = [
+                (s.split("EMPLOYMENT_MISMATCH:", 1)[1].strip() if s is mismatch_note else s)
+                for s in person_snippets
+            ]
 
         yield await _emit({
             "type": "step",
@@ -200,7 +318,7 @@ async def confirm_and_generate(
             company_name,
             role,
             jd_talking_points,
-            {**company_pages, "web": "\n".join(company_ddg[:5])},
+            _tag_company_signals(company_pages, company_ddg),
             person_snippets,
             user_context,
         )
@@ -213,7 +331,14 @@ async def confirm_and_generate(
 
         try:
             if not email:
-                raise ValueError("No email address for contact")
+                yield await _emit({
+                    "type": "warning",
+                    "message": (
+                        f"Could not find an email for {name} on Hunter.io — "
+                        f"drafting the email anyway. Add their email manually "
+                        f"before creating Gmail drafts."
+                    ),
+                })
 
             result = await asyncio.to_thread(
                 generate_email,
@@ -227,7 +352,9 @@ async def confirm_and_generate(
                 linkedin,
                 github,
                 sign_off,
+                used_subjects,
             )
+            used_subjects.append(result["subject"])
             update_contact_draft(contact_id, result["subject"], result["body"], "success")
             drafts.append({
                 "contact_id": contact_id,
@@ -235,7 +362,7 @@ async def confirm_and_generate(
                 "email": email,
                 "role": role,
                 "confidence": contact.get("confidence", 0),
-                "email_status": contact.get("email_status", "ok"),
+                "email_status": "missing" if not email else contact.get("email_status", "ok"),
                 "subject": result["subject"],
                 "body": result["body"],
                 "status": "success",
@@ -276,6 +403,9 @@ async def generate_emails_for_contacts(
 
     drafts = []
     failed = []
+    used_subjects = [
+        c["draft_subject"] for c in all_contacts if c.get("draft_subject")
+    ]
 
     for contact in targets:
         contact_id = contact["id"]
@@ -284,18 +414,21 @@ async def generate_emails_for_contacts(
         email = contact.get("email", "")
 
         try:
-            person_snippets = search_person_signals(name, company_name)
+            if not email:
+                found = _try_find_email(job_details.get("company_domain", ""), name)
+                if found.get("email"):
+                    email = found["email"]
+
+            person_snippets = search_person_signals(name, company_name, contact.get("linkedin_url", ""))
             signals = summarize_public_signals(
                 name,
                 company_name,
                 role,
                 job_details.get("talking_points_from_jd", []),
-                state.get("company_pages", {}),
+                _tag_company_signals(state.get("company_pages", {}), state.get("company_ddg", [])),
                 person_snippets,
                 state.get("user_context", ""),
             )
-            if not email:
-                raise ValueError("No email address")
 
             result = generate_email(
                 name,
@@ -308,13 +441,16 @@ async def generate_emails_for_contacts(
                 state.get("linkedin", ""),
                 state.get("github", ""),
                 state.get("sign_off", "Best regards"),
+                used_subjects,
             )
+            used_subjects.append(result["subject"])
             update_contact_draft(contact_id, result["subject"], result["body"], "success")
             drafts.append({
                 "contact_id": contact_id,
                 "name": name,
                 "email": email,
                 "role": role,
+                "email_status": "missing" if not email else contact.get("email_status", "ok"),
                 "subject": result["subject"],
                 "body": result["body"],
                 "status": "success",

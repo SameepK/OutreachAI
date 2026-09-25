@@ -18,7 +18,7 @@ def extract_text_from_pdf(file_content: bytes) -> str:
         pdf_reader = PyPDF2.PdfReader(pdf_file)
         text = ""
         for page in pdf_reader.pages:
-            text += page.extract_text() + "\n"
+            text += (page.extract_text() or "") + "\n"
         return text.strip()
     except Exception as e:
         raise Exception(f"Failed to parse PDF: {e}")

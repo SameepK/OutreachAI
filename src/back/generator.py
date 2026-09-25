@@ -7,7 +7,7 @@ from prompt import SYSTEM_PROMPT, build_user_prompt
 load_dotenv()
 
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
-MODEL = "llama-3.3-70b-versatile"
+MODEL = "openai/gpt-oss-120b"
 
 
 def generate_email(
@@ -21,6 +21,7 @@ def generate_email(
     linkedin="",
     github="",
     sign_off="Best regards",
+    previous_subjects=None,
 ):
     user_prompt = build_user_prompt(
         name,
@@ -33,6 +34,7 @@ def generate_email(
         linkedin,
         github,
         sign_off,
+        previous_subjects,
     )
 
     chat_completion = client.chat.completions.create(
@@ -42,14 +44,20 @@ def generate_email(
         ],
         model=MODEL,
         response_format={"type": "json_object"},
+        reasoning_effort="low",
     )
 
     message_content = chat_completion.choices[0].message.content.strip()
     email_data = json.loads(message_content)
 
+    subject = email_data.get("subject", "").strip()
+    body = email_data.get("email_body", email_data.get("body", "")).strip()
+    if not subject or not body:
+        raise ValueError("Model returned empty subject or body")
+
     return {
-        "subject": email_data.get("subject", ""),
-        "body": email_data.get("email_body", email_data.get("body", "")),
+        "subject": subject,
+        "body": body,
     }
 
 

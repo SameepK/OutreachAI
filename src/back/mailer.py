@@ -36,7 +36,7 @@ def send_email(to_email: str, subject: str, body: str) -> bool:
 
 if __name__ == "__main__":
     success = send_email(
-        "kotechasameep123@gmail.com",
+        os.getenv("TEST_RECIPIENT", "test@example.com"),
         "Test Cold Email",
         "Hey,\n\nThis is a test from the cold-email agent via Gmail SMTP.\n\nCheers"
     )

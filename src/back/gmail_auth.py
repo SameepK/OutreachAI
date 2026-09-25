@@ -49,6 +49,7 @@ def get_auth_url() -> str:
         _client_config(),
         scopes=SCOPES,
         redirect_uri=redirect_uri,
+        autogenerate_code_verifier=False,
     )
     auth_url, _ = flow.authorization_url(
         access_type="offline",
@@ -66,6 +67,7 @@ def handle_oauth_callback(code: str) -> None:
         _client_config(),
         scopes=SCOPES,
         redirect_uri=redirect_uri,
+        autogenerate_code_verifier=False,
     )
     flow.fetch_token(code=code)
     credentials = flow.credentials
