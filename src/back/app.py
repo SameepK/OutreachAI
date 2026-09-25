@@ -35,9 +35,12 @@ def require_api_key(x_api_key: str = Header(default="")) -> None:
     if not secrets.compare_digest(x_api_key, APP_API_KEY):
         raise HTTPException(status_code=401, detail="Invalid or missing API key")
 
+DEPLOYED_FRONTEND_URL = os.getenv("DEPLOYED_FRONTEND_URL", "")
+
 app.add_middleware(
     CORSMiddleware,
     allow_origin_regex=r"^http://(localhost|127\.0\.0\.1):\d+$",
+    allow_origins=[DEPLOYED_FRONTEND_URL] if DEPLOYED_FRONTEND_URL else [],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT"],
     allow_headers=["Content-Type", "X-API-Key"],
