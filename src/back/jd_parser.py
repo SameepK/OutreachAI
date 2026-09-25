@@ -11,11 +11,14 @@ MODEL = "openai/gpt-oss-120b"
 
 
 def parse_jd(raw_jd_text: str, job_url: str = "") -> dict:
-    prompt = f"""Extract structured job details from this job description.
+    prompt = f"""Determine whether the text below is a job posting/job description, then extract
+structured details if it is.
 Return ONLY valid JSON with these keys:
-- company_name (string)
-- company_domain (string, e.g. dropbox.com — infer from company if not explicit)
-- role_title (string)
+- is_job_posting (boolean — false if this is a README, blog post, homepage, article,
+  or any other content that is not a job posting/job description)
+- company_name (string, empty if not a job posting)
+- company_domain (string, e.g. dropbox.com — infer from company if not explicit, empty if not a job posting)
+- role_title (string, empty if not a job posting)
 - location (string)
 - tech_stack (array of strings)
 - team_focus (string, one sentence)
@@ -23,7 +26,7 @@ Return ONLY valid JSON with these keys:
 - talking_points_from_jd (array of 2-4 specific phrases useful for a cold email hook)
 - job_url (string, use "{job_url}" if provided else empty string)
 
-Job description:
+Text:
 {raw_jd_text[:12000]}
 """
 

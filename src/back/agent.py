@@ -133,6 +133,13 @@ async def run_agent_phase_one(
         yield await _emit({"type": "error", "message": f"JD parsing failed: {e}"})
         return
 
+    if not job_details.get("is_job_posting", True):
+        yield await _emit({
+            "type": "error",
+            "message": "That link doesn't look like a job posting. Paste the job description text or a direct link to the job listing.",
+        })
+        return
+
     yield await _emit({"type": "step", "step": 3, "message": "Scraping company public pages..."})
 
     company_domain = job_details.get("company_domain", "")
