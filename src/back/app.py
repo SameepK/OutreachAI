@@ -106,6 +106,14 @@ def health_check():
     return {"status": "running"}
 
 
+@app.get("/debug/env-check")
+def debug_env_check():
+    return {
+        "DEPLOYED_FRONTEND_URL": repr(os.getenv("DEPLOYED_FRONTEND_URL")),
+        "FRONTEND_URL": repr(os.getenv("FRONTEND_URL")),
+    }
+
+
 @app.post("/parse-resume")
 async def parse_resume(file: UploadFile = File(...)):
     try:
