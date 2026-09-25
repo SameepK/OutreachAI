@@ -74,6 +74,9 @@ def generate_email(
     message_content = chat_completion.choices[0].message.content.strip()
     email_data = json.loads(message_content)
 
+    print(f"[debug] hook_source_excerpt: {email_data.get('hook_source_excerpt')!r}")
+    print(f"[debug] public_signals_about_contact: {public_signals_about_contact!r}")
+
     subject = email_data.get("subject", "").strip()
     body = email_data.get("email_body", email_data.get("body", "")).strip()
     if not subject or not body:
