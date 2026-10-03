@@ -7,6 +7,12 @@ OutreachAI is an AI-powered job-application outreach agent that takes a job desc
 [Try OutreachAI →](https://outreach-ai-wheat.vercel.app/)
 [View Source Code →](https://github.com/SameepK/OutreachAI)
 
+## 🎥 Demo Video
+
+
+https://github.com/user-attachments/assets/09a84f6f-6138-4b2d-8221-029c553c8b90
+
+
 **Deployment**
 - Frontend: Vercel
 - Backend: Render
