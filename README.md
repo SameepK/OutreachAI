@@ -10,8 +10,7 @@ OutreachAI is an AI-powered job-application outreach agent that takes a job desc
 ## 🎥 Demo Video
 
 
-https://github.com/user-attachments/assets/b71bbdec-5d11-45a1-b6e6-fdbb8592a414
-
+https://github.com/user-attachments/assets/09a84f6f-6138-4b2d-8221-029c553c8b90
 
 
 **Deployment**
