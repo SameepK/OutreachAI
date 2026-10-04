@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { API_BASE_URL, authHeaders } from "../api";
+import { API_BASE_URL, FETCH_CREDENTIALS } from "../api";
 
 function initials(name) {
   const parts = (name || "").trim().split(/\s+/).filter(Boolean);
@@ -39,7 +39,8 @@ export default function DraftPreview({
     try {
       const res = await fetch(`${API_BASE_URL}/agent/generate-emails`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", ...authHeaders() },
+        credentials: FETCH_CREDENTIALS,
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ application_id: applicationId, contact_ids: [contactId] }),
       });
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || "Retry failed");
@@ -65,7 +66,8 @@ export default function DraftPreview({
     try {
       const res = await fetch(`${API_BASE_URL}/gmail/create-drafts`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", ...authHeaders() },
+        credentials: FETCH_CREDENTIALS,
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           drafts: localDrafts.map((d) => ({
             contact_id: d.contact_id,

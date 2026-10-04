@@ -2,6 +2,7 @@ import base64
 import logging
 import re
 from email.mime.text import MIMEText
+from typing import Any
 
 from googleapiclient.discovery import build
 
@@ -12,18 +13,18 @@ logger = logging.getLogger(__name__)
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
-def _build_service():
-    creds = get_credentials()
+def _build_service(session: dict[str, Any]):
+    creds = get_credentials(session)
     if not creds:
         raise RuntimeError("Gmail not connected. Complete OAuth first.")
     return build("gmail", "v1", credentials=creds)
 
 
-def _get_authenticated_email() -> str:
+def _get_authenticated_email(session: dict[str, Any]) -> str:
     """Return the Gmail address actually connected via OAuth, or "" if it
     can't be determined (not connected, API error, etc.)."""
     try:
-        service = _build_service()
+        service = _build_service(session)
         profile = service.users().getProfile(userId="me").execute()
         return profile.get("emailAddress", "")
     except Exception as e:
@@ -31,13 +32,13 @@ def _get_authenticated_email() -> str:
         return ""
 
 
-def create_draft(to_email: str, subject: str, body: str) -> str:
+def create_draft(session: dict[str, Any], to_email: str, subject: str, body: str) -> str:
     message = MIMEText(body)
     message["to"] = to_email
     message["subject"] = subject
     raw = base64.urlsafe_b64encode(message.as_bytes()).decode("utf-8")
 
-    service = _build_service()
+    service = _build_service(session)
     draft = (
         service.users()
         .drafts()
@@ -47,10 +48,10 @@ def create_draft(to_email: str, subject: str, body: str) -> str:
     return draft.get("id", "")
 
 
-def create_drafts(drafts: list[dict]) -> dict:
+def create_drafts(session: dict[str, Any], drafts: list[dict]) -> dict:
     created = []
     errors = []
-    own_email = _get_authenticated_email()
+    own_email = _get_authenticated_email(session)
 
     for d in drafts:
         to_email = d.get("to_email") or d.get("email")
@@ -67,7 +68,7 @@ def create_drafts(drafts: list[dict]) -> dict:
             })
             continue
         try:
-            draft_id = create_draft(to_email, d.get("subject", ""), d.get("body", ""))
+            draft_id = create_draft(session, to_email, d.get("subject", ""), d.get("body", ""))
             created.append({
                 "contact_id": d.get("contact_id"),
                 "draft_id": draft_id,

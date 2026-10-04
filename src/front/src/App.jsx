@@ -4,7 +4,8 @@ import AgentProgress from "./components/AgentProgress";
 import ContactReview from "./components/ContactReview";
 import DraftPreview from "./components/DraftPreview";
 import DraftConfirmation from "./components/DraftConfirmation";
-import { API_BASE_URL, parseSSEStream, checkGmailStatus, authHeaders, clearResume } from "./api";
+import Privacy from "./components/Privacy";
+import { API_BASE_URL, parseSSEStream, checkGmailStatus, FETCH_CREDENTIALS } from "./api";
 
 const STEPS = [
   { key: "input", label: "Target & Resume", path: "target-resume" },
@@ -40,6 +41,10 @@ const HERO_COPY = [
 ];
 
 export default function App() {
+  if (window.location.pathname === "/privacy") {
+    return <Privacy />;
+  }
+
   const [stage, setStage] = useState("input");
   const [agentInput, setAgentInput] = useState(null);
   const [progressMessages, setProgressMessages] = useState([]);
@@ -72,7 +77,8 @@ export default function App() {
     try {
       const res = await fetch(`${API_BASE_URL}/agent/run`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", ...authHeaders() },
+        credentials: FETCH_CREDENTIALS,
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           jd_text: input.jd_text,
           jd_url: input.jd_url,
@@ -121,7 +127,8 @@ export default function App() {
     try {
       const res = await fetch(`${API_BASE_URL}/agent/confirm-contacts`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", ...authHeaders() },
+        credentials: FETCH_CREDENTIALS,
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           application_id: applicationId,
           contacts: confirmedContacts,
@@ -269,7 +276,6 @@ export default function App() {
               onComplete={(result) => {
                 setConfirmation(result);
                 setStage("done");
-                clearResume().catch(() => {});
               }}
               onBack={() => setStage("contacts")}
             />

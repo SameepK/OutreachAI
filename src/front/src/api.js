@@ -1,10 +1,32 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
-const API_KEY = import.meta.env.VITE_API_KEY || "";
 
 export { API_BASE_URL };
 
-export function authHeaders() {
-  return API_KEY ? { "X-API-Key": API_KEY } : {};
+// Session identity is a cookie the backend sets itself (see app.py) — every
+// fetch just needs to carry it along. No API key, no client-managed auth.
+export const FETCH_CREDENTIALS = "include";
+
+// Non-sensitive form fields (never the resume text itself) remembered
+// locally in the visitor's own browser so returning to the form isn't a
+// blank slate. Nothing here is sent to or seen by the server.
+const PROFILE_KEY = "outreachai_profile";
+
+export async function fetchProfile() {
+  try {
+    const raw = localStorage.getItem(PROFILE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function saveProfile({ linkedin = "", github = "", sign_off = "Best regards" } = {}) {
+  try {
+    localStorage.setItem(PROFILE_KEY, JSON.stringify({ linkedin, github, sign_off }));
+  } catch {
+    /* localStorage unavailable (private mode, etc.) — non-fatal */
+  }
+  return {};
 }
 
 export async function parseSSEStream(response, onEvent) {
@@ -32,37 +54,11 @@ export async function parseSSEStream(response, onEvent) {
   }
 }
 
-export async function fetchProfile() {
-  const res = await fetch(`${API_BASE_URL}/user/profile`);
-  if (!res.ok) return null;
-  return res.json();
-}
-
-export async function saveProfile(data) {
-  const res = await fetch(`${API_BASE_URL}/user/profile`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data),
-  });
-  if (!res.ok) throw new Error("Failed to save profile");
-  return res.json();
-}
-
-export async function clearResume() {
-  const profile = await fetchProfile();
-  return saveProfile({
-    resume_text: "",
-    resume_filename: "",
-    linkedin: profile?.linkedin || "",
-    github: profile?.github || "",
-    sign_off: profile?.sign_off || "Best regards",
-  });
-}
-
 export async function findMoreContacts(applicationId, department) {
   const res = await fetch(`${API_BASE_URL}/agent/find-more-contacts`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...authHeaders() },
+    credentials: FETCH_CREDENTIALS,
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ application_id: applicationId, department }),
   });
   const data = await res.json().catch(() => ({}));
@@ -71,7 +67,7 @@ export async function findMoreContacts(applicationId, department) {
 }
 
 export async function checkGmailStatus() {
-  const res = await fetch(`${API_BASE_URL}/auth/gmail/status`);
+  const res = await fetch(`${API_BASE_URL}/auth/gmail/status`, { credentials: FETCH_CREDENTIALS });
   if (!res.ok) return { connected: false };
   return res.json();
 }

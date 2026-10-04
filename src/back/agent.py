@@ -15,7 +15,7 @@ from web_search import (
     summarize_public_signals,
 )
 from generator import generate_email
-from db import (
+from sessions import (
     create_application,
     update_application_state,
     get_application,
@@ -98,6 +98,7 @@ async def _emit(event: dict) -> str:
 
 
 async def run_agent_phase_one(
+    session: dict,
     jd_text: str | None,
     jd_url: str | None,
     resume_text: str,
@@ -206,6 +207,7 @@ async def run_agent_phase_one(
         })
 
     create_application(
+        session,
         application_id=application_id,
         company=company_name,
         role=job_details.get("role_title", ""),
@@ -217,7 +219,7 @@ async def run_agent_phase_one(
     )
 
     if contacts:
-        save_application_contacts(application_id, contacts)
+        save_application_contacts(session, application_id, contacts)
 
     yield await _emit({
         "type": "contacts_ready",
@@ -228,10 +230,11 @@ async def run_agent_phase_one(
 
 
 async def confirm_and_generate(
+    session: dict,
     application_id: str,
     contacts: list[dict],
 ) -> AsyncGenerator[str, None]:
-    app = get_application(application_id)
+    app = get_application(session, application_id)
     if not app:
         yield await _emit({"type": "error", "message": "Application not found"})
         return
@@ -248,8 +251,8 @@ async def confirm_and_generate(
     company_ddg = state.get("company_ddg", [])
     jd_talking_points = job_details.get("talking_points_from_jd", [])
 
-    saved_contacts = save_application_contacts(application_id, contacts)
-    update_application_state(application_id, state, "generating")
+    saved_contacts = save_application_contacts(session, application_id, contacts)
+    update_application_state(session, application_id, state, "generating")
 
     drafts: list[dict] = []
     failed: list[dict] = []
@@ -362,7 +365,7 @@ async def confirm_and_generate(
                 used_subjects,
             )
             used_subjects.append(result["subject"])
-            update_contact_draft(contact_id, result["subject"], result["body"], "success")
+            update_contact_draft(session, application_id, contact_id, result["subject"], result["body"], "success")
             drafts.append({
                 "contact_id": contact_id,
                 "name": name,
@@ -376,10 +379,10 @@ async def confirm_and_generate(
             })
         except Exception as e:
             logger.exception("Email generation failed for %s", name)
-            update_contact_draft(contact_id, "", "", "failed")
+            update_contact_draft(session, application_id, contact_id, "", "", "failed")
             failed.append({"contact_id": contact_id, "name": name, "error": str(e)})
 
-    update_application_state(application_id, state, "complete")
+    update_application_state(session, application_id, state, "complete")
 
     yield await _emit({
         "type": "drafts_ready",
@@ -390,18 +393,19 @@ async def confirm_and_generate(
 
 
 async def generate_emails_for_contacts(
+    session: dict,
     application_id: str,
     contact_ids: list[int] | None = None,
 ) -> dict:
     """Generate emails for specific contacts (retry support)."""
-    app = get_application(application_id)
+    app = get_application(session, application_id)
     if not app:
         raise ValueError("Application not found")
 
     state = app.get("agent_state") or {}
     job_details = state.get("job_details", {})
     company_name = job_details.get("company_name", "")
-    all_contacts = get_application_contacts(application_id)
+    all_contacts = get_application_contacts(session, application_id)
 
     if contact_ids:
         targets = [c for c in all_contacts if c["id"] in contact_ids]
@@ -451,7 +455,7 @@ async def generate_emails_for_contacts(
                 used_subjects,
             )
             used_subjects.append(result["subject"])
-            update_contact_draft(contact_id, result["subject"], result["body"], "success")
+            update_contact_draft(session, application_id, contact_id, result["subject"], result["body"], "success")
             drafts.append({
                 "contact_id": contact_id,
                 "name": name,
@@ -463,7 +467,7 @@ async def generate_emails_for_contacts(
                 "status": "success",
             })
         except Exception as e:
-            update_contact_draft(contact_id, "", "", "failed")
+            update_contact_draft(session, application_id, contact_id, "", "", "failed")
             failed.append({"contact_id": contact_id, "name": name, "error": str(e)})
 
     return {"drafts": drafts, "failed": failed}

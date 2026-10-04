@@ -1,16 +1,11 @@
 import os
-import secrets
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, Header, HTTPException, UploadFile, File, Request
+from fastapi import Cookie, Depends, FastAPI, HTTPException, UploadFile, File, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, RedirectResponse
 from pydantic import BaseModel
 
-from db import (
-    get_user_profile,
-    upsert_user_profile,
-    get_application,
-)
+from sessions import get_or_create_session, get_application, check_and_increment_usage, RateLimitExceeded
 from resume_parser import extract_text_from_file
 from agent import run_agent_phase_one, confirm_and_generate, generate_emails_for_contacts
 from contact_finder import find_contacts_by_department
@@ -21,20 +16,6 @@ load_dotenv()
 
 app = FastAPI(title="OutreachAI Job Application Agent")
 
-APP_API_KEY = os.getenv("APP_API_KEY")
-if not APP_API_KEY:
-    APP_API_KEY = secrets.token_urlsafe(24)
-    print(
-        f"[app] No APP_API_KEY set. Generated a temporary key for this run:\n"
-        f"[app]   {APP_API_KEY}\n"
-        f"[app] Set APP_API_KEY in .env to keep it stable across restarts."
-    )
-
-
-def require_api_key(x_api_key: str = Header(default="")) -> None:
-    if not secrets.compare_digest(x_api_key, APP_API_KEY):
-        raise HTTPException(status_code=401, detail="Invalid or missing API key")
-
 DEPLOYED_FRONTEND_URL = os.getenv("DEPLOYED_FRONTEND_URL", "")
 
 app.add_middleware(
@@ -43,10 +24,33 @@ app.add_middleware(
     allow_origins=[DEPLOYED_FRONTEND_URL] if DEPLOYED_FRONTEND_URL else [],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT"],
-    allow_headers=["Content-Type", "X-API-Key"],
+    allow_headers=["Content-Type"],
 )
 
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
+
+SESSION_COOKIE = "session_id"
+SESSION_MAX_AGE = 6 * 3600
+
+
+def get_session_id_and_data(session_id: str | None = Cookie(default=None, alias=SESSION_COOKIE)) -> tuple[str, dict]:
+    return get_or_create_session(session_id)
+
+
+def set_session_cookie(response: Response, session_id: str) -> None:
+    """Every route that touches session data calls this on whatever Response
+    it actually returns. Setting it via a Response *dependency* doesn't work
+    here: FastAPI discards those header mutations whenever the route handler
+    returns its own Response object (RedirectResponse/StreamingResponse),
+    which several routes below do — so each route sets it explicitly instead."""
+    response.set_cookie(
+        key=SESSION_COOKIE,
+        value=session_id,
+        httponly=True,
+        secure=True,
+        samesite="none",
+        max_age=SESSION_MAX_AGE,
+    )
 
 
 class AgentRunRequest(BaseModel):
@@ -96,14 +100,6 @@ class CreateDraftsRequest(BaseModel):
     drafts: list[DraftItem]
 
 
-class UserProfileRequest(BaseModel):
-    resume_text: str = ""
-    resume_filename: str = ""
-    linkedin: str = ""
-    github: str = ""
-    sign_off: str = "Best regards"
-
-
 @app.get("/")
 def health_check():
     return {"status": "running"}
@@ -123,30 +119,19 @@ async def parse_resume(file: UploadFile = File(...)):
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@app.get("/user/profile")
-def get_profile():
-    profile = get_user_profile()
-    return profile or {}
-
-
-@app.put("/user/profile")
-def update_profile(payload: UserProfileRequest):
-    return upsert_user_profile(
-        resume_text=payload.resume_text,
-        resume_filename=payload.resume_filename,
-        linkedin=payload.linkedin,
-        github=payload.github,
-        sign_off=payload.sign_off,
-    )
-
-
-@app.post("/agent/run", dependencies=[Depends(require_api_key)])
-async def agent_run(payload: AgentRunRequest):
+@app.post("/agent/run")
+async def agent_run(payload: AgentRunRequest, session_data: tuple = Depends(get_session_id_and_data)):
+    session_id, session = session_data
     if not payload.resume_text.strip():
         raise HTTPException(status_code=400, detail="resume_text is required")
+    try:
+        check_and_increment_usage(session)
+    except RateLimitExceeded as e:
+        raise HTTPException(status_code=429, detail=str(e))
 
-    return StreamingResponse(
+    response = StreamingResponse(
         run_agent_phase_one(
+            session,
             jd_text=payload.jd_text,
             jd_url=payload.jd_url,
             resume_text=payload.resume_text,
@@ -158,22 +143,30 @@ async def agent_run(payload: AgentRunRequest):
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
+    set_session_cookie(response, session_id)
+    return response
 
 
-@app.post("/agent/confirm-contacts", dependencies=[Depends(require_api_key)])
-async def agent_confirm_contacts(payload: ConfirmContactsRequest):
+@app.post("/agent/confirm-contacts")
+async def agent_confirm_contacts(payload: ConfirmContactsRequest, session_data: tuple = Depends(get_session_id_and_data)):
+    session_id, session = session_data
     contacts = [c.model_dump() for c in payload.contacts]
-    return StreamingResponse(
-        confirm_and_generate(payload.application_id, contacts),
+    response = StreamingResponse(
+        confirm_and_generate(session, payload.application_id, contacts),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
+    set_session_cookie(response, session_id)
+    return response
 
 
-@app.post("/agent/generate-emails", dependencies=[Depends(require_api_key)])
-async def agent_generate_emails(payload: GenerateEmailsRequest):
+@app.post("/agent/generate-emails")
+async def agent_generate_emails(payload: GenerateEmailsRequest, response: Response, session_data: tuple = Depends(get_session_id_and_data)):
+    session_id, session = session_data
+    set_session_cookie(response, session_id)
     try:
         return await generate_emails_for_contacts(
+            session,
             payload.application_id,
             payload.contact_ids,
         )
@@ -183,9 +176,11 @@ async def agent_generate_emails(payload: GenerateEmailsRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/agent/find-more-contacts", dependencies=[Depends(require_api_key)])
-def find_more_contacts_route(payload: FindMoreContactsRequest):
-    app_data = get_application(payload.application_id)
+@app.post("/agent/find-more-contacts")
+def find_more_contacts_route(payload: FindMoreContactsRequest, response: Response, session_data: tuple = Depends(get_session_id_and_data)):
+    session_id, session = session_data
+    set_session_cookie(response, session_id)
+    app_data = get_application(session, payload.application_id)
     if not app_data:
         raise HTTPException(status_code=404, detail="Application not found")
 
@@ -212,40 +207,57 @@ def find_more_contacts_route(payload: FindMoreContactsRequest):
 
 
 @app.get("/agent/applications/{application_id}")
-def get_application_route(application_id: str):
-    app_data = get_application(application_id)
+def get_application_route(application_id: str, response: Response, session_data: tuple = Depends(get_session_id_and_data)):
+    session_id, session = session_data
+    set_session_cookie(response, session_id)
+    app_data = get_application(session, application_id)
     if not app_data:
         raise HTTPException(status_code=404, detail="Application not found")
     return app_data
 
 
 @app.get("/auth/gmail/status")
-def gmail_status():
-    return {"connected": is_gmail_connected()}
+def gmail_status(response: Response, session_data: tuple = Depends(get_session_id_and_data)):
+    session_id, session = session_data
+    set_session_cookie(response, session_id)
+    return {"connected": is_gmail_connected(session)}
 
 
 @app.get("/auth/gmail/login")
-def gmail_login():
+def gmail_login(session_data: tuple = Depends(get_session_id_and_data)):
+    session_id, _session = session_data
     try:
-        return RedirectResponse(get_auth_url())
+        response = RedirectResponse(get_auth_url())
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    set_session_cookie(response, session_id)
+    return response
 
 
 @app.get("/auth/gmail/callback")
-def gmail_callback(request: Request):
+def gmail_callback(request: Request, session_data: tuple = Depends(get_session_id_and_data)):
+    session_id, session = session_data
     code = request.query_params.get("code")
     if not code:
         raise HTTPException(status_code=400, detail="Missing OAuth code")
     try:
-        handle_oauth_callback(code)
+        handle_oauth_callback(session, code)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-    return RedirectResponse(f"{FRONTEND_URL}?gmail=connected")
+    response = RedirectResponse(f"{FRONTEND_URL}?gmail=connected")
+    set_session_cookie(response, session_id)
+    return response
 
 
-@app.post("/gmail/create-drafts", dependencies=[Depends(require_api_key)])
-def gmail_create_drafts(payload: CreateDraftsRequest):
+@app.post("/gmail/create-drafts")
+def gmail_create_drafts(payload: CreateDraftsRequest, response: Response, session_data: tuple = Depends(get_session_id_and_data)):
+    session_id, session = session_data
+    set_session_cookie(response, session_id)
+    try:
+        check_and_increment_usage(session)
+    except RateLimitExceeded as e:
+        raise HTTPException(status_code=429, detail=str(e))
+
     draft_dicts = []
     for d in payload.drafts:
         draft_dicts.append({
@@ -255,7 +267,7 @@ def gmail_create_drafts(payload: CreateDraftsRequest):
             "body": d.body,
         })
     try:
-        return create_drafts(draft_dicts)
+        return create_drafts(session, draft_dicts)
     except RuntimeError as e:
         raise HTTPException(status_code=401, detail=str(e))
     except Exception as e:

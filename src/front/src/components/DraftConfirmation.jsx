@@ -5,7 +5,8 @@ function initials(name) {
 }
 
 export default function DraftConfirmation({ result, onReset }) {
-  const { draftCount, usedGmail, gmail_url, created, drafts = [] } = result || {};
+  const { draftCount, usedGmail, gmail_url, created, errors = [], drafts = [] } = result || {};
+  const createdCount = usedGmail ? (created?.length ?? 0) : draftCount;
 
   return (
     <div className="flex flex-col gap-8">
@@ -29,7 +30,7 @@ export default function DraftConfirmation({ result, onReset }) {
       <div className="flex flex-col gap-3">
         <h1 className="font-headline font-bold text-3xl sm:text-5xl text-ink tracking-tight uppercase">
           {usedGmail
-            ? `${draftCount} Draft${draftCount !== 1 ? "s" : ""} Staged in Gmail`
+            ? `${createdCount} Draft${createdCount !== 1 ? "s" : ""} Staged in Gmail`
             : `${draftCount} Email${draftCount !== 1 ? "s" : ""} Ready`}
         </h1>
         <p className="text-ink/60 font-body text-sm sm:text-base max-w-3xl leading-relaxed">
@@ -68,6 +69,19 @@ export default function DraftConfirmation({ result, onReset }) {
           </a>
         )}
       </div>
+
+      {usedGmail && errors.length > 0 && (
+        <div className="bg-red/10 border-2 border-red p-4 flex flex-col gap-2">
+          <span className="text-xs font-headline font-bold uppercase tracking-wider text-red">
+            {errors.length} draft{errors.length !== 1 ? "s" : ""} failed to reach Gmail
+          </span>
+          <ul className="text-xs font-body text-ink/70 leading-relaxed list-disc list-inside">
+            {errors.map((e, i) => (
+              <li key={e.contact_id ?? i}>{e.error}</li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {/* Human-in-the-loop guarantee */}
       <div className="bg-surface-container-high p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
